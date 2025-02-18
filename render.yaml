@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: go-server
+    env: go
+    region: ohio
+    plan: starter
+    buildCommand: go build -o main
+    startCommand: ./main
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8080
+    autoDeploy: true
+    numInstances: 1
+    github:
+      branch: main
+      deploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+      targetMemoryPercent: 60
+      targetCPUPercent: 60
