@@ -38,5 +38,5 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
 func thanksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<html><body><a>getsongbpm.com</a></body></html>")
+	fmt.Fprintf(w, "<html><body><a href=\"https://getsongbpm.com>getsongbpm.com</a></body></html>")
 }
