@@ -11,9 +11,8 @@ services:
       - key: PORT
         value: 8080
     autoDeploy: true
-    numInstances: 1
     scaling:
       minInstances: 1
-      maxInstances: 1
+      maxInstances: 3
       targetMemoryPercent: 60
       targetCPUPercent: 60
