@@ -8,7 +8,6 @@ services:
       go mod download
       go build -o server
     startCommand: ./server
-    healthCheckPath: /health
     envVars:
       - key: PORT
         value: 8080
