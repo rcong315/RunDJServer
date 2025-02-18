@@ -12,9 +12,6 @@ services:
         value: 8080
     autoDeploy: true
     numInstances: 1
-    github:
-      branch: main
-      deploy: true
     scaling:
       minInstances: 1
       maxInstances: 1
