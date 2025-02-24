@@ -158,7 +158,7 @@ func presetPlaylistHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bpm, err := strconv.Atoi(bpmStr)
+	bpm, err := strconv.ParseFloat(bpmStr, 64)
 	if err != nil {
 		http.Error(w, "Invalid bpm", http.StatusBadRequest)
 		return
