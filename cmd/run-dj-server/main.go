@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
+
+	"github.com/jackc/pgx/v4"
+	"github.com/joho/godotenv"
 )
 
 const spotifyAPIURL = "https://api.spotify.com/v1"
@@ -38,15 +43,21 @@ type Message struct {
 }
 
 type SpotifyUser struct {
-	ID string `json:"id"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/thanks", thanksHandler)
 
-	// http.HandleFunc("/api/user/register", registerHandler)
-	// http.HandleFunc("/api/user/login", loginHandler)
+	http.HandleFunc("/api/user/register", registerHandler)
 	http.HandleFunc("/api/songs/preset", presetPlaylistHandler)
 
 	port := ":8080"
@@ -109,38 +120,30 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
-}
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
+		dbUser, dbPassword, dbHost, dbPort, dbName)
 
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	accessToken := r.URL.Query().Get("access_token")
-	apiURL := fmt.Sprintf("%s/me", spotifyAPIURL)
-	req, err := http.NewRequest("GET", apiURL, nil)
+	// Connect to the database
+	conn, err := pgx.Connect(context.Background(), connString)
 	if err != nil {
-		http.Error(w, "Error creating request", http.StatusInternalServerError)
-		return
+		log.Fatalf("Unable to connect to database: %v", err)
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	defer conn.Close(context.Background())
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	// Create a new user record
+	_, err = conn.Exec(context.Background(),
+		`INSERT INTO "user" (user_id, email, display_name) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING`, user.ID, user.Email, user.DisplayName)
 	if err != nil {
-		http.Error(w, "Error making GET request", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, "Error from the other server", resp.StatusCode)
-		return
+		log.Fatalf("Error creating user record: %v", err)
 	}
 
-	var user SpotifyUser
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		http.Error(w, "Error decoding response", http.StatusInternalServerError)
-		return
-	}
+	fmt.Printf("Created new user: ID=%s, Email=%s, DisplayName=%s\n",
+		user.ID, user.Email, user.DisplayName)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
