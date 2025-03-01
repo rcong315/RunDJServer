@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/joho/godotenv"
+
+	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
 const spotifyAPIURL = "https://api.spotify.com/v1"
@@ -112,7 +114,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		http.Error(w, "Error from the other server", resp.StatusCode)
+		http.Error(w, "Error from Spotify server", resp.StatusCode)
 		return
 	}
 
@@ -141,14 +143,16 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = conn.Exec(context.Background(),
 		`INSERT INTO "user" (user_id, email, display_name) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING`, user.ID, user.Email, user.DisplayName)
 	if err != nil {
-		log.Fatalf("Error creating user record: %v", err)
+		log.Printf("Error creating user record: %v", err)
 	}
 
 	fmt.Printf("Created new user: ID=%s, Email=%s, DisplayName=%s\n",
 		user.ID, user.Email, user.DisplayName)
 
+	var ids []string = spotify.GetAllTracks(accessToken)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(ids)
 }
 
 func presetPlaylistHandler(w http.ResponseWriter, r *http.Request) {
