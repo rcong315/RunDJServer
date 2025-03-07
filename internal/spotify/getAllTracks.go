@@ -79,5 +79,6 @@ func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
 	// 	ids = append(ids, id)
 	// }
 
-	return ids
+	// return ids
+	return nil, nil, nil, nil
 }
