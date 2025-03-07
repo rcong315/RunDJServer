@@ -1,30 +1,65 @@
 package spotify
 
-func getAllTracks(token string) []string {
+import "log"
+
+func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
 	var idsSet = make(map[string]struct{})
+	var trackCount = 0
 
-	// User's playlists
-	var playlistIDs = getUsersPlaylists(token)
-	for _, id := range playlistIDs {
-		idsSet[id] = struct{}{}
-	}
-
-	// User's top artists
-	var artistIDs = getUsersTopArtists(token)
-	var albumIDs []string
-	for _, id := range artistIDs {
-		for _, id := range getArtistsTopTracks(token, id) {
+	addTrack := func(id string) {
+		if _, exists := idsSet[id]; !exists {
 			idsSet[id] = struct{}{}
+			trackCount++
+			if trackCount%500 == 0 {
+				log.Printf("Added %d tracks, latest: %s", trackCount, id)
+			}
 		}
-		albumIDs = append(albumIDs, getArtistsAlbums(token, id)...)
-	}
-	for _, id := range albumIDs {
-		idsSet[id] = struct{}{}
 	}
 
 	// User's top tracks
+	log.Print("Getting user's top tracks")
 	for _, id := range getUsersTopTracks(token) {
-		idsSet[id] = struct{}{}
+		addTrack(id)
+	}
+
+	// User's saved tracks
+	log.Printf("Getting user's saved tracks")
+	for _, id := range getUsersSavedTracks(token) {
+		addTrack(id)
+	}
+
+	// User's playlists
+	log.Printf("Getting tracks from user's playlists")
+	var playlistIds = getUsersPlaylists(token)
+	for _, playlistId := range playlistIds {
+		for _, id := range getPlaylistsTracks(token, playlistId) {
+			addTrack(id)
+		}
+	}
+
+	// User's top artists and followed artists
+	log.Printf("Getting tracks from user's top and followed artists")
+	var topArtistsIds = getUsersTopArtists(token)
+	var followedArtistIds = getUsersFollowedArtists(token)
+	artistsMap := make(map[string]struct{})
+	for _, id := range topArtistsIds {
+		artistsMap[id] = struct{}{}
+	}
+	for _, id := range followedArtistIds {
+		artistsMap[id] = struct{}{}
+	}
+	var albumIds []string
+	for _, artistId := range artistsMap {
+		for _, traickId := range getArtistsTopTracks(token, artistId) {
+			addTrack(traickId)
+		}
+		albumIds = append(albumIds, getArtistsAlbums(token, artistId)...)
+	}
+	for _, id := range albumIds {
+		for _, id := range getAlbumsTracks(token, id) {
+			idsSet[id] = struct{}{}
+			log.Printf("Added track Id from album: %s", id)
+		}
 	}
 
 	var ids []string
