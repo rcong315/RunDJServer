@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,9 +9,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/joho/godotenv"
-
+	"github.com/rcong315/RunDJServer/internal/db"
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
@@ -44,15 +42,15 @@ type Message struct {
 	Message string `json:"message"`
 }
 
-type SpotifyUser struct {
-	ID          string `json:"id"`
+type User struct {
+	UserId      string `json:"userId"`
 	Email       string `json:"email"`
-	DisplayName string `json:"display_name"`
+	DisplayName string `json:"displayName"`
 }
 
 func main() {
 	if os.Getenv("DEBUG") == "true" {
-		err := godotenv.Load()
+		err := godotenv.Load("../../.env")
 		if err != nil {
 			log.Fatal("Error loading .env file")
 		}
@@ -65,7 +63,7 @@ func main() {
 	http.HandleFunc("/api/songs/preset", presetPlaylistHandler)
 
 	port := ":8080"
-	fmt.Printf("Server starting on port %s\n", port)
+	log.Printf("Server starting on port %s\n", port)
 	if err := http.ListenAndServe(port, nil); err != nil {
 		log.Fatal(err)
 	}
@@ -118,41 +116,32 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user SpotifyUser
+	var user User
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		http.Error(w, "Error decoding response", http.StatusInternalServerError)
 		return
 	}
 
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		dbUser, dbPassword, dbHost, dbPort, dbName)
-
-	// Connect to the database
-	conn, err := pgx.Connect(context.Background(), connString)
+	err = db.SaveUser(user.UserId, user.Email, user.DisplayName)
 	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
+		http.Error(w, "Error saving user", http.StatusInternalServerError)
+		log.Printf("Error saving user: %v\n", err)
+		return
 	}
-	defer conn.Close(context.Background())
+	log.Printf("Created new user: Id=%s, Email=%s, DisplayName=%s\n",
+		user.UserId, user.Email, user.DisplayName)
 
-	// Create a new user record
-	_, err = conn.Exec(context.Background(),
-		`INSERT INTO "user" (user_id, email, display_name) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING`, user.ID, user.Email, user.DisplayName)
-	if err != nil {
-		log.Printf("Error creating user record: %v", err)
-	}
-
-	fmt.Printf("Created new user: ID=%s, Email=%s, DisplayName=%s\n",
-		user.ID, user.Email, user.DisplayName)
-
-	var ids []string = spotify.GetAllTracks(accessToken)
+	go func(accessToken, userId string) {
+		log.Printf("Getting all tracks for user %s\n", userId)
+		spotify.GetAllTracks(accessToken)
+		// log.Printf("Finished getting %d tracks for user %s\n", len(ids), userI)
+		// log.Print("Getting and saving song BPMs, this might take a while...\n")
+		// bpm.SaveBPMs(userId, ids)
+		// log.Printf("Finished saving BPMs for user %s\n", userId)
+	}(accessToken, user.UserId)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ids)
+	json.NewEncoder(w).Encode(Message{Status: "success", Message: "User registered successfully, processing tracks"})
 }
 
 func presetPlaylistHandler(w http.ResponseWriter, r *http.Request) {
@@ -175,11 +164,11 @@ func presetPlaylistHandler(w http.ResponseWriter, r *http.Request) {
 
 	roundedBPM := int(math.Round(float64(bpm)/5) * 5)
 
-	playlistID, exists := presetPlaylists[roundedBPM]
+	playlistId, exists := presetPlaylists[roundedBPM]
 	if !exists {
 		http.Error(w, "Playlist not found for the given BPM", http.StatusNotFound)
 		return
 	}
 
-	fmt.Fprint(w, playlistID)
+	fmt.Fprint(w, playlistId)
 }
