@@ -12,7 +12,11 @@ type Track struct {
 
 type Album struct {
 	Id               string   `json:"id"`
-	Artists          Artist   `json:"artists"`
+	Name             string   `json:"name"`
+	Artists          []Artist `json:"artists"`
+	Genres           []string `json:"genres"`
+	Popularity       int      `json:"popularity"`
+	AlbumType        string   `json:"album_type"`
 	TotalTracks      int      `json:"total_tracks"`
 	ReleaseDate      string   `json:"release_date"`
 	AvailableMarkets []string `json:"available_markets"`

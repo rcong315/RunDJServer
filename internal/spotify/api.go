@@ -6,77 +6,97 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const spotifyAPIURL = "https://api.spotify.com/v1/"
 const limitMax = 50
+const maxRetries = 3
 
-func getNextURL(response interface{}) string {
-	switch r := response.(type) {
-	case *UsersTopTracksResponse:
-		return r.Next
-	case *UsersSavedTracksResponse:
-		return r.Next
-	case *UsersPlaylistsResponse:
-		return r.Next
-	case *PlaylistsTracksResponse:
-		return r.Next
-	case *UsersTopArtistsResponse:
-		return r.Next
-	case *UsersFollowedArtists:
-		return r.Artists.Next
-	case *ArtistsTopTrackResponse:
-		return "" // No pagination for top tracks
-	case *ArtistsAlbumsResponse:
-		return r.Next
-	case *AlbumsTracksResponse:
-		return r.Next
-	default:
-		return ""
-	}
-}
+func fetchPaginatedItems(token string, url string, responseType any) (any, error) {
+	var lastErr error
+	currentLimit := limitMax
 
-func fetchPaginatedItems(token string, url string, responseType interface{}) (interface{}, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Printf("Error creating request: %v", err)
-		return nil, err
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Error making GET request: %v", err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Error from Spotify server: %d for URL: %s", resp.StatusCode, url)
-		if resp.StatusCode == http.StatusTooManyRequests {
-			retryAfter := 60
-			if retryHeader := resp.Header.Get("Retry-After"); retryHeader != "" {
-				if seconds, err := strconv.Atoi(retryHeader); err == nil {
-					retryAfter = seconds
-				}
-			}
-			log.Printf("Rate limited, waiting %d seconds", retryAfter)
-			time.Sleep(time.Duration(retryAfter) * time.Second)
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff
+			waitTime := time.Duration(attempt*3) * time.Second
+			log.Printf("Retrying request (attempt %d) after %v", attempt+1, waitTime)
+			time.Sleep(waitTime)
 		}
-		return nil, fmt.Errorf("server returned status code %d", resp.StatusCode)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			log.Printf("Error creating request: %v", err)
+			lastErr = err
+			continue
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Error making GET request: %v", err)
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close() // Close the body before processing errors
+
+			log.Printf("Error from Spotify server: %d for URL: %s", resp.StatusCode, url)
+
+			// Handle rate limiting
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := 60
+				if retryHeader := resp.Header.Get("Retry-After"); retryHeader != "" {
+					if seconds, err := strconv.Atoi(retryHeader); err == nil {
+						retryAfter = seconds
+					}
+				}
+				log.Printf("Rate limited, waiting %d seconds", retryAfter)
+				time.Sleep(time.Duration(retryAfter) * time.Second)
+				lastErr = fmt.Errorf("rate limited, retrying after %d seconds", retryAfter)
+				continue
+			} else if resp.StatusCode == http.StatusBadGateway {
+				// For 502 errors, try reducing the limit
+				if strings.Contains(url, "limit=") && currentLimit > 10 {
+					currentLimit = currentLimit / 2 // Reduce the limit by half
+					log.Printf("Got a 502 error, reducing limit to %d", currentLimit)
+					url = modifyURLLimit(url, currentLimit)
+					lastErr = fmt.Errorf("reduced limit to %d after 502 error", currentLimit)
+					continue
+				}
+			} else if resp.StatusCode >= 500 {
+				// Other server errors might be temporary
+				lastErr = fmt.Errorf("server returned status code %d, may retry", resp.StatusCode)
+				continue
+			} else {
+				// Client errors (4xx) except 429 are likely not recoverable with retries
+				return nil, fmt.Errorf("server returned status code %d", resp.StatusCode)
+			}
+		} else {
+			// Success path
+			defer resp.Body.Close()
+			if err := json.NewDecoder(resp.Body).Decode(responseType); err != nil {
+				log.Printf("Error decoding response: %v", err)
+				lastErr = err
+				continue
+			}
+
+			return responseType, nil
+		}
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(responseType); err != nil {
-		log.Printf("Error decoding response: %v", err)
-		return nil, err
-	}
-	return responseType, nil
+	// If we get here, all retries failed
+	return nil, fmt.Errorf("all %d attempts failed, last error: %v", maxRetries, lastErr)
 }
 
-func fetchAllResults(token string, url string, responseType interface{}) ([]interface{}, error) {
-	var results []interface{}
+func fetchAllResults(token string, url string, responseType any) ([]any, error) {
+	var results []any
 	for {
 		response, err := fetchPaginatedItems(token, url, responseType)
 		if err != nil {
@@ -99,16 +119,14 @@ func getUsersTopTracks(token string) ([]Track, error) {
 	responseType := &UsersTopTracksResponse{}
 
 	responses, err := fetchAllResults(token, url, responseType)
-	if err != nil {
-		return nil, err
-	}
+
 	for _, response := range responses {
 		if typedResponse, ok := response.(*UsersTopTracksResponse); ok {
 			allTracks = append(allTracks, typedResponse.Items...)
 		}
 	}
 
-	return allTracks, nil
+	return allTracks, err
 }
 
 // func getUsersSavedTracks(token string) ([]UsersSavedTracksResponse, error) {

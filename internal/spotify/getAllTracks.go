@@ -1,23 +1,24 @@
 package spotify
 
 import (
-	"encoding/json"
 	"log"
 )
 
 func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
-	// var idsSet = make(map[string]struct{})
-	// var trackCount = 0
+	// *** TODO: Save as you go ***
 
-	// addTrack := func(id string) {
-	// 	if _, exists := idsSet[id]; !exists {
-	// 		idsSet[id] = struct{}{}
-	// 		trackCount++
-	// 		if trackCount%500 == 0 {
-	// 			log.Printf("Added %d tracks, latest: %s", trackCount, id)
-	// 		}
-	// 	}
-	// }
+	var trackSet = make(map[string]Track)
+	var trackCount = 0
+
+	addTrack := func(track Track) {
+		if _, exists := trackSet[track.Id]; !exists {
+			trackSet[track.Id] = track
+			trackCount++
+			if trackCount%500 == 0 {
+				log.Printf("Added %d tracks, latest: %s", trackCount, track.Id)
+			}
+		}
+	}
 
 	// User's top tracks
 	log.Print("Getting user's top tracks")
@@ -26,12 +27,11 @@ func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
 		log.Printf("Error getting user's top tracks: %v", err)
 	}
 	for _, track := range usersTopTracks {
-		trackJSON, err := json.Marshal(track)
 		if err != nil {
 			log.Printf("Error marshaling track: %v", err)
 			continue
 		}
-		log.Printf(string(trackJSON))
+		addTrack(track)
 	}
 
 	// // User's saved tracks
@@ -80,5 +80,5 @@ func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
 	// }
 
 	// return ids
-	return nil, nil, nil, nil
+	return MapToArray(trackSet), MapToArray(nil), MapToArray(nil), MapToArray(nil)
 }
