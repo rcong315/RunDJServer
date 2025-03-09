@@ -1,36 +1,84 @@
 package spotify
 
-func getAllTracks(token string) []string {
-	var idsSet = make(map[string]struct{})
+import (
+	"log"
+)
 
-	// User's playlists
-	var playlistIDs = getUsersPlaylists(token)
-	for _, id := range playlistIDs {
-		idsSet[id] = struct{}{}
-	}
+func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
+	// *** TODO: Save as you go ***
 
-	// User's top artists
-	var artistIDs = getUsersTopArtists(token)
-	var albumIDs []string
-	for _, id := range artistIDs {
-		for _, id := range getArtistsTopTracks(token, id) {
-			idsSet[id] = struct{}{}
+	var trackSet = make(map[string]Track)
+	var trackCount = 0
+
+	addTrack := func(track Track) {
+		if _, exists := trackSet[track.Id]; !exists {
+			trackSet[track.Id] = track
+			trackCount++
+			if trackCount%500 == 0 {
+				log.Printf("Added %d tracks, latest: %s", trackCount, track.Id)
+			}
 		}
-		albumIDs = append(albumIDs, getArtistsAlbums(token, id)...)
-	}
-	for _, id := range albumIDs {
-		idsSet[id] = struct{}{}
 	}
 
 	// User's top tracks
-	for _, id := range getUsersTopTracks(token) {
-		idsSet[id] = struct{}{}
+	log.Print("Getting user's top tracks")
+	usersTopTracks, err := getUsersTopTracks(token)
+	if err != nil {
+		log.Printf("Error getting user's top tracks: %v", err)
+	}
+	for _, track := range usersTopTracks {
+		if err != nil {
+			log.Printf("Error marshaling track: %v", err)
+			continue
+		}
+		addTrack(track)
 	}
 
-	var ids []string
-	for id := range idsSet {
-		ids = append(ids, id)
-	}
+	// // User's saved tracks
+	// log.Printf("Getting user's saved tracks")
+	// for _, id := range getUsersSavedTracks(token) {
+	// 	addTrack(id)
+	// }
 
-	return ids
+	// // User's playlists
+	// log.Printf("Getting tracks from user's playlists")
+	// var playlistIds = getUsersPlaylists(token)
+	// for _, playlistId := range playlistIds {
+	// 	for _, id := range getPlaylistsTracks(token, playlistId) {
+	// 		addTrack(id)
+	// 	}
+	// }
+
+	// // User's top artists and followed artists
+	// log.Printf("Getting tracks from user's top and followed artists")
+	// var topArtistsIds = getUsersTopArtists(token)
+	// var followedArtistIds = getUsersFollowedArtists(token)
+	// artistsMap := make(map[string]struct{})
+	// for _, id := range topArtistsIds {
+	// 	artistsMap[id] = struct{}{}
+	// }
+	// for _, id := range followedArtistIds {
+	// 	artistsMap[id] = struct{}{}
+	// }
+	// var albumIds []string
+	// for _, artistId := range artistsMap {
+	// 	for _, traickId := range getArtistsTopTracks(token, artistId) {
+	// 		addTrack(traickId)
+	// 	}
+	// 	albumIds = append(albumIds, getArtistsAlbums(token, artistId)...)
+	// }
+	// for _, id := range albumIds {
+	// 	for _, id := range getAlbumsTracks(token, id) {
+	// 		idsSet[id] = struct{}{}
+	// 		log.Printf("Added track Id from album: %s", id)
+	// 	}
+	// }
+
+	// var ids []string
+	// for id := range idsSet {
+	// 	ids = append(ids, id)
+	// }
+
+	// return ids
+	return MapToArray(trackSet), MapToArray(nil), MapToArray(nil), MapToArray(nil)
 }
