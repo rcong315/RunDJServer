@@ -80,5 +80,5 @@ func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
 	// }
 
 	// return ids
-	return MapToArray(trackSet), MapToArray(nil), MapToArray(nil), MapToArray(nil)
+	return MapTracksToArray(trackSet), MapAlbumsToArray(nil), MapArtistsToArray(nil), MapPlaylistsToArray(nil)
 }

@@ -1,9 +1,48 @@
 package spotify
 
 import (
+	"fmt"
+	"math/rand"
 	"net/url"
+	"os"
 	"strconv"
+	"sync"
+	"time"
 )
+
+var (
+	config     *Config
+	configOnce sync.Once
+	configErr  error
+)
+
+func GetConfig() (*Config, error) {
+	configOnce.Do(func() {
+		config, configErr = loadConfig()
+	})
+	return config, configErr
+}
+
+func loadConfig() (*Config, error) {
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Println("Warning: .env file not found. Using system environment variables.")
+	// }
+
+	config := &Config{
+		ClientID:     os.Getenv("SPOTIFY_CLIENT_ID"),
+		ClientSecret: os.Getenv("SPOTIFY_CLIENT_SECRET"),
+		RedirectURI:  os.Getenv("REDIRECT_URI"),
+		FrontendURI:  os.Getenv("FRONTEND_URI"),
+		Port:         os.Getenv("PORT"),
+	}
+
+	if config.ClientID == "" || config.ClientSecret == "" {
+		return nil, fmt.Errorf("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set")
+	}
+
+	return config, nil
+}
 
 func MapTracksToArray(m map[string]Track) []Track {
 	arr := make([]Track, 0, len(m))
@@ -98,4 +137,15 @@ func modifyURLLimit(apiURL string, newLimit int) string {
 	parsedURL.RawQuery = query.Encode()
 
 	return parsedURL.String()
+}
+
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }

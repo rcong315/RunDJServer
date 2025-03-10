@@ -11,10 +11,9 @@ const (
 			country, 
 			followers, 
 			product, 
-			explicit_filter_enabled, 
 			image_urls
 		) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (user_id) DO NOTHING
 	`
 
@@ -28,10 +27,11 @@ const (
 			album_id,
 			popularity,
 			available_markets,
-			audio_features
+			audio_features,
+			bpm
 		) 
 		VALUES (
-			$1, ARRAY[$2], $3, $4, $5, $6, $7, $8
+			$1, ARRAY[$2], $3, $4, $5, $6, $7, $8, $9
 		)
 		ON CONFLICT (track_id) DO UPDATE 
 		SET 
@@ -41,7 +41,8 @@ const (
 			album_id = $5,
 			popularity = $6,
 			available_markets = $7,
-			audio_features = $8
+			audio_features = $8,
+			bpm = $9
 		WHERE NOT (track.user_ids @> ARRAY[$2])
 	`
 	UpdateAudioFeaturesQuery = `

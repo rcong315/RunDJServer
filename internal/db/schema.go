@@ -1,19 +1,13 @@
 package db
 
-type AudioFeatures struct {
-	Danceability      float64 `json:"danceability"`
-	Energy            float64 `json:"energy"`
-	Key               int     `json:"key"`
-	Loudness          float64 `json:"loudness"`
-	Mode              int     `json:"mode"`
-	Speechiness       float64 `json:"speechiness"`
-	Acousticness      float64 `json:"acousticness"`
-	Instrumentallness float64 `json:"instrumentallness"`
-	Liveness          float64 `json:"liveness"`
-	Valence           float64 `json:"valence"`
-	Tempo             float64 `json:"tempo"`
-	Duration          int     `json:"duration_ms"`
-	TimeSignature     int     `json:"time_signature"`
+type User struct {
+	UserId      string   `json:"user_id"`
+	Email       string   `json:"email"`
+	DisplayName string   `json:"display_name"`
+	Country     string   `json:"country"`
+	Followers   int      `json:"followers"`
+	Product     string   `json:"product"`
+	ImageURLs   []string `json:"image_urls"`
 }
 
 type Track struct {
@@ -26,6 +20,7 @@ type Track struct {
 	DurationMS       int           `json:"duration_ms"`
 	AvailableMarkets []string      `json:"available_markets"`
 	AudioFeatures    AudioFeatures `json:"audio_features"`
+	BPM              int           `json:"bpm"`
 }
 
 type Album struct {
@@ -62,13 +57,18 @@ type Playlist struct {
 	ImageURLs   []string `json:"image_urls"`
 }
 
-type User struct {
-	UserId                string   `json:"user_id"`
-	Email                 string   `json:"email"`
-	DisplayName           string   `json:"name"`
-	Country               string   `json:"country"`
-	Followers             int      `json:"followers"`
-	Product               string   `json:"product"`
-	ExplicitFilterEnabled int      `json:"explicit_filter"`
-	ImageURLs             []string `json:"image_url"`
+type AudioFeatures struct {
+	Danceability      float64 `json:"danceability"`
+	Energy            float64 `json:"energy"`
+	Key               int     `json:"key"`
+	Loudness          float64 `json:"loudness"`
+	Mode              int     `json:"mode"`
+	Speechiness       float64 `json:"speechiness"`
+	Acousticness      float64 `json:"acousticness"`
+	Instrumentallness float64 `json:"instrumentallness"`
+	Liveness          float64 `json:"liveness"`
+	Valence           float64 `json:"valence"`
+	Tempo             float64 `json:"tempo"`
+	Duration          int     `json:"duration_ms"`
+	TimeSignature     int     `json:"time_signature"`
 }

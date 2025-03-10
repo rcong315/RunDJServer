@@ -3,14 +3,12 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"sync"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/joho/godotenv"
 )
 
 var (
@@ -22,12 +20,12 @@ var (
 const BatchSize = 100
 
 func initDB() error {
-	if os.Getenv("DEBUG") == "true" {
-		err := godotenv.Load("../../.env")
-		if err != nil {
-			log.Printf("Error loading .env file: %v", err)
-		}
-	}
+	// if os.Getenv("DEBUG") == "true" {
+	// 	err := godotenv.Load("../../.env")
+	// 	if err != nil {
+	// 		log.Println("Warning: .env file not found. Using system environment variables.")
+	// 	}
+	// }
 
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
@@ -93,7 +91,7 @@ func batchAndSave(userId string, items any, insertQuery string, paramConverter f
 	}
 
 	batch := &pgx.Batch{}
-	for i := 0; i < slice.Len(); i++ {
+	for i := range slice.Len() {
 		item := slice.Index(i).Interface()
 		params := paramConverter(userId, item)
 		batch.Queue(insertQuery, params...)

@@ -18,7 +18,6 @@ func SaveUser(user User) error {
 		user.Country,
 		user.Followers,
 		user.Product,
-		user.ExplicitFilterEnabled,
 		user.ImageURLs,
 	)
 	if err != nil {
@@ -41,6 +40,7 @@ func SaveTracks(userId string, tracks []Track) error {
 			track.DurationMS,
 			track.AvailableMarkets,
 			track.AudioFeatures,
+			track.BPM,
 		}
 	})
 }

@@ -1,5 +1,17 @@
 package spotify
 
+type User struct {
+	Id          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Country     string `json:"country"`
+	Followers   struct {
+		Total int `json:"total"`
+	} `json:"followers"`
+	Product   string  `json:"product"`
+	ImageURLs []Image `json:"images"`
+}
+
 type Track struct {
 	Id               string   `json:"id"`
 	Name             string   `json:"name"`
@@ -114,4 +126,32 @@ type AudioFeaturesResponse struct {
 	Tempo             float64 `json:"tempo"`
 	Duration          int     `json:"duration_ms"`
 	TimeSignature     int     `json:"time_signature"`
+}
+
+type TokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	Scope        string `json:"scope"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type TokenRequest struct {
+	Code string `json:"code"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type Config struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
+	FrontendURI  string
+	Port         string
 }
