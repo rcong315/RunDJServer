@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -80,6 +81,18 @@ func CallbackHandler(c *gin.Context) {
 }
 
 func TokenHandler(c *gin.Context) {
+	log.Printf("TokenHandler: Processing request from %s", c.ClientIP())
+
+	// bodyBytes, err := io.ReadAll(c.Request.Body)
+	// if err != nil {
+	// 	log.Printf("TokenHandler: Error reading request body: %v", err)
+	// 	c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Error reading request body"})
+	// 	return
+	// }
+
+	// // Log the raw body
+	// log.Printf("TokenHandler: Raw request body: %s", string(bodyBytes))
+
 	config, err := GetConfig()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Configuration error: " + err.Error()})
@@ -87,7 +100,7 @@ func TokenHandler(c *gin.Context) {
 	}
 
 	var tokenRequest TokenRequest
-	if err := c.ShouldBindJSON(&tokenRequest); err != nil {
+	if err := c.ShouldBind(&tokenRequest); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
 		return
 	}
@@ -121,28 +134,75 @@ func RefreshHandler(c *gin.Context) {
 		return
 	}
 
-	var refreshRequest RefreshRequest
-	if err := c.ShouldBindJSON(&refreshRequest); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
-		return
+	contentType := c.GetHeader("Content-Type")
+	log.Printf("Content-Type: %s", contentType)
+
+	// Get refresh token directly from form data first
+	refreshToken := c.PostForm("refresh_token")
+
+	// If not found in form, read and log the raw body
+	if refreshToken == "" {
+		bodyBytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			log.Printf("Error reading request body: %v", err)
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Could not read request body"})
+			return
+		}
+
+		// Log the raw body for debugging
+		bodyStr := string(bodyBytes)
+		log.Printf("Raw request body: %s", bodyStr)
+
+		// Restore the body for later use
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		// Try to parse the body as form data
+		formValues, err := url.ParseQuery(bodyStr)
+		if err != nil {
+			log.Printf("Error parsing form data: %v", err)
+		} else {
+			refreshToken = formValues.Get("refresh_token")
+			log.Printf("Found refresh_token in parsed form: %s", refreshToken)
+		}
+
+		// As a fallback, try to search for the refresh token in the body string
+		if refreshToken == "" && strings.Contains(bodyStr, "refresh_token=") {
+			parts := strings.Split(bodyStr, "refresh_token=")
+			if len(parts) > 1 {
+				tokenPart := parts[1]
+				// If there are other parameters, cut at the &
+				if ampIndex := strings.Index(tokenPart, "&"); ampIndex != -1 {
+					refreshToken = tokenPart[:ampIndex]
+				} else {
+					refreshToken = tokenPart
+				}
+				log.Printf("Extracted refresh_token from body: %s", refreshToken)
+			}
+		}
 	}
 
-	if refreshRequest.RefreshToken == "" {
+	// Check if we have a refresh token
+	if refreshToken == "" {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Refresh token is required"})
 		return
 	}
 
 	// Prepare refresh token request data
 	data := url.Values{}
-	data.Set("refresh_token", refreshRequest.RefreshToken)
+	data.Set("refresh_token", refreshToken)
 	data.Set("grant_type", "refresh_token")
 
 	// Make request to Spotify token API
 	tokenResponse, err := makeTokenRequest(config, data)
 	if err != nil {
 		log.Printf("Token refresh error: %v", err)
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to refresh token"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: fmt.Sprintf("Failed to refresh token: %v", err)})
 		return
+	}
+
+	// If the response doesn't include a refresh token, add the one we used
+	if tokenResponse.RefreshToken == "" {
+		tokenResponse.RefreshToken = refreshToken
 	}
 
 	c.JSON(http.StatusOK, tokenResponse)

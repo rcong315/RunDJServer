@@ -141,7 +141,7 @@ type ErrorResponse struct {
 }
 
 type TokenRequest struct {
-	Code string `json:"code"`
+	Code string `json:"code" form:"code"`
 }
 
 type RefreshRequest struct {
