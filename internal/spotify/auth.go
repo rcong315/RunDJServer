@@ -19,79 +19,8 @@ const (
 	spotifyTokenURL = "https://accounts.spotify.com/api/token"
 )
 
-func AuthHandler(c *gin.Context) {
-	config, err := GetConfig()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Configuration error: " + err.Error()})
-		return
-	}
-
-	state := generateRandomString(16)
-	scope := "user-read-private user-read-email user-read-playback-state user-modify-playback-state user-read-currently-playing"
-
-	params := url.Values{}
-	params.Add("response_type", "code")
-	params.Add("client_id", config.ClientID)
-	params.Add("scope", scope)
-	params.Add("redirect_uri", config.RedirectURI)
-	params.Add("state", state)
-	params.Add("show_dialog", "true")
-
-	authURL := spotifyAuthURL + "?" + params.Encode()
-	c.Redirect(http.StatusFound, authURL)
-}
-
-func CallbackHandler(c *gin.Context) {
-	config, err := GetConfig()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Configuration error: " + err.Error()})
-		return
-	}
-
-	code := c.Query("code")
-	state := c.Query("state")
-
-	if state == "" {
-		c.Redirect(http.StatusFound, config.FrontendURI+"/#error=state_mismatch")
-		return
-	}
-
-	// Prepare token request data
-	data := url.Values{}
-	data.Set("code", code)
-	data.Set("redirect_uri", config.RedirectURI)
-	data.Set("grant_type", "authorization_code")
-
-	// Make request to Spotify token API
-	tokenResponse, err := makeTokenRequest(config, data)
-	if err != nil {
-		log.Printf("Token exchange error: %v", err)
-		c.Redirect(http.StatusFound, config.FrontendURI+"/#error=invalid_token")
-		return
-	}
-
-	// Redirect to frontend with tokens
-	redirectURL := fmt.Sprintf("%s/#access_token=%s&refresh_token=%s&expires_in=%d",
-		config.FrontendURI,
-		tokenResponse.AccessToken,
-		tokenResponse.RefreshToken,
-		tokenResponse.ExpiresIn)
-
-	c.Redirect(http.StatusFound, redirectURL)
-}
-
 func TokenHandler(c *gin.Context) {
 	log.Printf("TokenHandler: Processing request from %s", c.ClientIP())
-
-	// bodyBytes, err := io.ReadAll(c.Request.Body)
-	// if err != nil {
-	// 	log.Printf("TokenHandler: Error reading request body: %v", err)
-	// 	c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Error reading request body"})
-	// 	return
-	// }
-
-	// // Log the raw body
-	// log.Printf("TokenHandler: Raw request body: %s", string(bodyBytes))
 
 	config, err := GetConfig()
 	if err != nil {
