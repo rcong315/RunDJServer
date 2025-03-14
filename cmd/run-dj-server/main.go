@@ -24,8 +24,6 @@ func main() {
 	router.GET("/", service.HomeHandler)
 	router.GET("/thanks", service.ThanksHandler)
 
-	router.GET("/api/spotify/auth/auth", spotify.AuthHandler)
-	router.GET("/api/spotify/auth/callback", spotify.CallbackHandler)
 	router.POST("/api/spotify/auth/token", spotify.TokenHandler)
 	router.POST("/api/spotify/auth/refresh", spotify.RefreshHandler)
 
