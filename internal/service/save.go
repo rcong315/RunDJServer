@@ -5,11 +5,16 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
-func save(userId string, tracks []spotify.Track) {
+func saveUser(user spotify.User) error {
+	dbUser := convertSpotifyUserToDBUser(user)
+	return db.SaveUser(dbUser)
+}
+
+func saveTracks(userId string, tracks []spotify.Track) error {
 	var trackData []db.Track
 	for _, track := range tracks {
 		dbTrack := convertSpotifyTrackToDBTrack(userId, track)
 		trackData = append(trackData, dbTrack)
 	}
-	db.SaveTracks(userId, trackData)
+	return db.SaveTracks(userId, trackData)
 }

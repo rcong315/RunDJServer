@@ -2,29 +2,37 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	"github.com/rcong315/RunDJServer/internal/service"
+	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
 func main() {
 	if os.Getenv("DEBUG") == "true" {
 		err := godotenv.Load("../../.env")
 		if err != nil {
-			log.Fatal("Error loading .env file")
+			log.Fatal("Warning: .env file not found. Using system environment variables.")
 		}
 	}
 
-	http.HandleFunc("/", service.HomeHandler)
-	http.HandleFunc("/thanks", service.ThanksHandler)
+	router := gin.Default()
 
-	http.HandleFunc("/api/user/register", service.RegisterHandler)
-	http.HandleFunc("/api/songs/preset", service.PresetPlaylistHandler)
+	router.GET("/", service.HomeHandler)
+	router.GET("/thanks", service.ThanksHandler)
 
-	port := ":8080"
+	router.GET("/api/spotify/auth/auth", spotify.AuthHandler)
+	router.GET("/api/spotify/auth/callback", spotify.CallbackHandler)
+	router.POST("/api/spotify/auth/token", spotify.TokenHandler)
+	router.POST("/api/spotify/auth/refresh", spotify.RefreshHandler)
+
+	router.GET("/api/user/register", service.RegisterHandler)
+	router.GET("/api/songs/preset", service.PresetPlaylistHandler)
+
+	port := os.Getenv("PORT")
 	log.Printf("Server starting on port %s\n", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatal(err)
-	}
+	router.Run(":" + port)
 }
