@@ -20,13 +20,6 @@ var (
 const BatchSize = 100
 
 func initDB() error {
-	// if os.Getenv("DEBUG") == "true" {
-	// 	err := godotenv.Load("../../.env")
-	// 	if err != nil {
-	// 		log.Println("Warning: .env file not found. Using system environment variables.")
-	// 	}
-	// }
-
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
 	dbPort := os.Getenv("DB_PORT")
@@ -57,21 +50,18 @@ func GetDB() (*pgxpool.Pool, error) {
 	return dbPool, nil
 }
 
-func processBatchResults(br pgx.BatchResults) error {
-	for {
+func processBatchResults(br pgx.BatchResults, count int) error {
+	for i := range count {
 		_, err := br.Exec()
 		if err != nil {
-			if err == pgx.ErrNoRows {
-				break
-			}
 			_ = br.Close()
-			return err
+			return fmt.Errorf("error executing batch item %d: %w", i, err)
 		}
 	}
 	return br.Close()
 }
 
-func batchAndSave(userId string, items any, insertQuery string, paramConverter func(userId string, item any) []any) error {
+func batchAndSave(items any, insertQuery string, paramConverter func(item any) []any) error {
 	db, err := GetDB()
 	if err != nil {
 		return fmt.Errorf("database connection error: %v", err)
@@ -93,12 +83,12 @@ func batchAndSave(userId string, items any, insertQuery string, paramConverter f
 	batch := &pgx.Batch{}
 	for i := range slice.Len() {
 		item := slice.Index(i).Interface()
-		params := paramConverter(userId, item)
+		params := paramConverter(item)
 		batch.Queue(insertQuery, params...)
 
 		if batch.Len() >= BatchSize {
 			br := tx.SendBatch(ctx, batch)
-			if err := processBatchResults(br); err != nil {
+			if err := processBatchResults(br, batch.Len()); err != nil {
 				return fmt.Errorf("batch execution error: %v", err)
 			}
 			batch = &pgx.Batch{}
@@ -107,7 +97,7 @@ func batchAndSave(userId string, items any, insertQuery string, paramConverter f
 
 	if batch.Len() > 0 {
 		br := tx.SendBatch(ctx, batch)
-		if err := processBatchResults(br); err != nil {
+		if err := processBatchResults(br, batch.Len()); err != nil {
 			return fmt.Errorf("batch execution error: %v", err)
 		}
 	}
