@@ -14,11 +14,13 @@ const spotifyAPIURL = "https://api.spotify.com/v1/"
 const limitMax = 50
 const maxRetries = 3
 
-func fetchPaginatedItems(token string, url string, responseType any) (any, error) {
+var retryLimits = []int{20, 10, 5}
+
+func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 	var lastErr error
 	currentLimit := limitMax
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		if attempt > 0 {
 			// Exponential backoff
 			waitTime := time.Duration(attempt*3) * time.Second
@@ -64,7 +66,7 @@ func fetchPaginatedItems(token string, url string, responseType any) (any, error
 			} else if resp.StatusCode == http.StatusBadGateway {
 				// For 502 errors, try reducing the limit
 				if strings.Contains(url, "limit=") && currentLimit > 10 {
-					currentLimit = currentLimit / 2 // Reduce the limit by half
+					currentLimit = retryLimits[attempt]
 					log.Printf("Got a 502 error, reducing limit to %d", currentLimit)
 					url = modifyURLLimit(url, currentLimit)
 					lastErr = fmt.Errorf("reduced limit to %d after 502 error", currentLimit)
@@ -81,13 +83,14 @@ func fetchPaginatedItems(token string, url string, responseType any) (any, error
 		} else {
 			// Success path
 			defer resp.Body.Close()
-			if err := json.NewDecoder(resp.Body).Decode(responseType); err != nil {
+			var result T
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 				log.Printf("Error decoding response: %v", err)
 				lastErr = err
 				continue
 			}
 
-			return responseType, nil
+			return &result, nil
 		}
 	}
 
@@ -95,38 +98,38 @@ func fetchPaginatedItems(token string, url string, responseType any) (any, error
 	return nil, fmt.Errorf("all %d attempts failed, last error: %v", maxRetries, lastErr)
 }
 
-func fetchAllResults(token string, url string, responseType any) ([]any, error) {
-	var results []any
+func fetchAllResults[T any](token string, initialURL string) ([]*T, error) {
+	var results []*T
+	url := initialURL
 	for {
-		response, err := fetchPaginatedItems(token, url, responseType)
+		response, err := fetchPaginatedItems[T](token, url)
 		if err != nil {
-			return results, err
+			break
 		}
 		results = append(results, response)
 
-		nextURL := getNextURL(response)
-		if nextURL == "" {
+		url = getNextURL(response)
+		if url == "" {
 			break
 		}
-		url = nextURL
 	}
 	return results, nil
 }
 
-func getUsersTopTracks(token string) ([]Track, error) {
-	var allTracks []Track
+func GetUsersTopTracks(token string) ([]Track, error) {
 	url := fmt.Sprintf("%sme/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
-	responseType := &UsersTopTracksResponse{}
 
-	responses, err := fetchAllResults(token, url, responseType)
-
-	for _, response := range responses {
-		if typedResponse, ok := response.(*UsersTopTracksResponse); ok {
-			allTracks = append(allTracks, typedResponse.Items...)
-		}
+	responses, err := fetchAllResults[UsersTopTracksResponse](token, url)
+	if err != nil {
+		return nil, err
 	}
 
-	return allTracks, err
+	var allTracks []Track
+	for _, response := range responses {
+		allTracks = append(allTracks, response.Items...)
+	}
+
+	return allTracks, nil
 }
 
 // func getUsersSavedTracks(token string) ([]UsersSavedTracksResponse, error) {

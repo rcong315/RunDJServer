@@ -22,7 +22,7 @@ func GetAllTracks(token string) ([]Track, []Album, []Artist, []Playlist) {
 
 	// User's top tracks
 	log.Print("Getting user's top tracks")
-	usersTopTracks, err := getUsersTopTracks(token)
+	usersTopTracks, err := GetUsersTopTracks(token)
 	if err != nil {
 		log.Printf("Error getting user's top tracks: %v", err)
 	}

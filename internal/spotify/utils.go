@@ -2,12 +2,10 @@ package spotify
 
 import (
 	"fmt"
-	"math/rand"
 	"net/url"
 	"os"
 	"strconv"
 	"sync"
-	"time"
 )
 
 var (
@@ -33,7 +31,6 @@ func loadConfig() (*Config, error) {
 		ClientID:     os.Getenv("SPOTIFY_CLIENT_ID"),
 		ClientSecret: os.Getenv("SPOTIFY_CLIENT_SECRET"),
 		RedirectURI:  os.Getenv("REDIRECT_URI"),
-		FrontendURI:  os.Getenv("FRONTEND_URI"),
 		Port:         os.Getenv("PORT"),
 	}
 
@@ -88,10 +85,10 @@ func getNextURL(response any) string {
 		return r.Next
 	case *UsersTopArtistsResponse:
 		return r.Next
-	case *UsersFollowedArtists:
+	case *UsersFollowedArtistsResponse:
 		return r.Artists.Next
 	case *ArtistsTopTrackResponse:
-		return "" // No pagination for top tracks
+		return ""
 	case *ArtistsAlbumsResponse:
 		return r.Next
 	case *AlbumsTracksResponse:
@@ -99,31 +96,6 @@ func getNextURL(response any) string {
 	default:
 		return ""
 	}
-}
-
-func extractOffsetAndLimit(apiURL string) (int, int) {
-	parsedURL, err := url.Parse(apiURL)
-	if err != nil {
-		return 0, limitMax
-	}
-
-	query := parsedURL.Query()
-
-	offset := 0
-	if offsetStr := query.Get("offset"); offsetStr != "" {
-		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil {
-			offset = parsedOffset
-		}
-	}
-
-	limit := limitMax
-	if limitStr := query.Get("limit"); limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil {
-			limit = parsedLimit
-		}
-	}
-
-	return offset, limit
 }
 
 func modifyURLLimit(apiURL string, newLimit int) string {
@@ -137,15 +109,4 @@ func modifyURLLimit(apiURL string, newLimit int) string {
 	parsedURL.RawQuery = query.Encode()
 
 	return parsedURL.String()
-}
-
-func generateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }

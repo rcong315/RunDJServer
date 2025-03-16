@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -57,7 +58,7 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	var user spotify.User
-	if err := c.ShouldBindJSON(&user); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding response"})
 		return
 	}
@@ -72,8 +73,11 @@ func RegisterHandler(c *gin.Context) {
 
 	go func(accessToken, userId string) {
 		log.Printf("Getting all tracks for user %s\n", userId)
-		tracks, _, _, _ := spotify.GetAllTracks(accessToken)
-		saveTracks(userId, tracks)
+		tracks, _ := spotify.GetUsersTopTracks(accessToken)
+		err = saveTracks(userId, tracks, "top tracks")
+		if err != nil {
+			log.Printf("Error saving tracks: %v", err)
+		}
 		// log.Printf("Finished getting %d tracks for user %s\n", len(ids), userI)
 		// log.Print("Getting and saving song BPMs, this might take a while...\n")
 		// bpm.SaveBPMs(userId, ids)
