@@ -19,6 +19,10 @@ const (
 	spotifyTokenURL = "https://accounts.spotify.com/api/token"
 )
 
+func SecretTokenHandler(c *gin.Context) {
+	GetSecretToken()
+}
+
 func TokenHandler(c *gin.Context) {
 	log.Printf("TokenHandler: Processing request from %s", c.ClientIP())
 

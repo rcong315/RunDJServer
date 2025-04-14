@@ -116,6 +116,41 @@ func fetchAllResults[T any](token string, initialURL string) ([]*T, error) {
 	return results, nil
 }
 
+func GetAudioFeatures(token string, tracks []Track) ([]Track, error) {
+	trackMap := make(map[string]Track)
+	for _, track := range tracks {
+		trackMap[track.Id] = track
+	}
+
+	for i := 0; i < len(tracks); i += 100 { // Iterate in batches of 100
+		var ids []string
+		for j := i; j < i+100 && j < len(tracks); j++ {
+			ids = append(ids, tracks[j].Id)
+		}
+
+		url := fmt.Sprintf("%saudio-features?ids=", spotifyAPIURL) + strings.Join(ids, ",")
+
+		responses, err := fetchAllResults[AudioFeaturesResponse](token, url)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, audioFeatures := range responses[0].AudioFeatures {
+			id := audioFeatures.Id
+			track := trackMap[id]
+			track.AudioFeatures = audioFeatures
+			trackMap[id] = track
+		}
+	}
+
+	result := make([]Track, 0, len(trackMap))
+	for _, track := range trackMap {
+		result = append(result, track)
+	}
+
+	return result, nil
+}
+
 func GetUsersTopTracks(token string) ([]Track, error) {
 	url := fmt.Sprintf("%sme/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 

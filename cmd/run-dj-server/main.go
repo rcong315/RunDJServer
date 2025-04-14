@@ -26,6 +26,7 @@ func main() {
 
 	router.POST("/api/spotify/auth/token", spotify.TokenHandler)
 	router.POST("/api/spotify/auth/refresh", spotify.RefreshHandler)
+	router.GET("/api/spotify/auth/secret", spotify.SecretTokenHandler)
 
 	router.GET("/api/user/register", service.RegisterHandler)
 	router.GET("/api/songs/preset", service.PresetPlaylistHandler)

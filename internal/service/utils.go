@@ -48,6 +48,7 @@ func convertSpotifyTrackToDBTrack(userId string, track spotify.Track) db.Track {
 	for i, artist := range track.Artists {
 		artistIds[i] = artist.Id
 	}
+	audioFeatures := track.AudioFeatures
 
 	dbTrack := db.Track{
 		TrackId:          track.Id,
@@ -57,21 +58,21 @@ func convertSpotifyTrackToDBTrack(userId string, track spotify.Track) db.Track {
 		Popularity:       track.Popularity,
 		DurationMS:       track.DurationMS,
 		AvailableMarkets: track.AvailableMarkets,
-		// AudioFeatures: AudioFeatures{
-		// 	Danceability:      audioFeatures.Danceability,
-		// 	Energy:            audioFeatures.Energy,
-		// 	Key:               audioFeatures.Key,
-		// 	Loudness:          audioFeatures.Loudness,
-		// 	Mode:              audioFeatures.Mode,
-		// 	Speechiness:       audioFeatures.Speechiness,
-		// 	Acousticness:      audioFeatures.Acousticness,
-		// 	Instrumentallness: audioFeatures.Instrumentallness,
-		// 	Liveness:          audioFeatures.Liveness,
-		// 	Valence:           audioFeatures.Valence,
-		// 	Tempo:             audioFeatures.Tempo,
-		// 	Duration:          audioFeatures.Duration,
-		// 	TimeSignature:     audioFeatures.TimeSignature,
-		// },
+		AudioFeatures: db.AudioFeatures{
+			Danceability:      audioFeatures.Danceability,
+			Energy:            audioFeatures.Energy,
+			Key:               audioFeatures.Key,
+			Loudness:          audioFeatures.Loudness,
+			Mode:              audioFeatures.Mode,
+			Speechiness:       audioFeatures.Speechiness,
+			Acousticness:      audioFeatures.Acousticness,
+			Instrumentallness: audioFeatures.Instrumentallness,
+			Liveness:          audioFeatures.Liveness,
+			Valence:           audioFeatures.Valence,
+			Tempo:             audioFeatures.Tempo,
+			Duration:          audioFeatures.Duration,
+			TimeSignature:     audioFeatures.TimeSignature,
+		},
 	}
 
 	return dbTrack

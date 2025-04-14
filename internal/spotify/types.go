@@ -12,30 +12,15 @@ type User struct {
 	ImageURLs []Image `json:"images"`
 }
 
-type AudioFeaturesResponse struct {
-	Danceability      float64 `json:"danceability"`
-	Energy            float64 `json:"energy"`
-	Key               int     `json:"key"`
-	Loudness          float64 `json:"loudness"`
-	Mode              int     `json:"mode"`
-	Speechiness       float64 `json:"speechiness"`
-	Acousticness      float64 `json:"acousticness"`
-	Instrumentallness float64 `json:"instrumentallness"`
-	Liveness          float64 `json:"liveness"`
-	Valence           float64 `json:"valence"`
-	Tempo             float64 `json:"tempo"`
-	Duration          int     `json:"duration_ms"`
-	TimeSignature     int     `json:"time_signature"`
-}
-
 type Track struct {
-	Id               string   `json:"id"`
-	Name             string   `json:"name"`
-	Album            Album    `json:"album"`
-	Artists          []Artist `json:"artists"`
-	Popularity       int      `json:"popularity"`
-	DurationMS       int      `json:"duration_ms"`
-	AvailableMarkets []string `json:"available_markets"`
+	Id               string        `json:"id"`
+	Name             string        `json:"name"`
+	Album            Album         `json:"album"`
+	Artists          []Artist      `json:"artists"`
+	Popularity       int           `json:"popularity"`
+	DurationMS       int           `json:"duration_ms"`
+	AvailableMarkets []string      `json:"available_markets"`
+	AudioFeatures    AudioFeatures `json:"audio_features"`
 }
 
 type Album struct {
@@ -75,6 +60,23 @@ type Playlist struct {
 		Total int `json:"total"`
 	} `json:"followers"`
 	Images []Image `json:"images"`
+}
+
+type AudioFeatures struct {
+	Id                string  `json:"id"`
+	Danceability      float64 `json:"danceability"`
+	Energy            float64 `json:"energy"`
+	Key               int     `json:"key"`
+	Loudness          float64 `json:"loudness"`
+	Mode              int     `json:"mode"`
+	Speechiness       float64 `json:"speechiness"`
+	Acousticness      float64 `json:"acousticness"`
+	Instrumentallness float64 `json:"instrumentallness"`
+	Liveness          float64 `json:"liveness"`
+	Valence           float64 `json:"valence"`
+	Tempo             float64 `json:"tempo"`
+	Duration          int     `json:"duration_ms"`
+	TimeSignature     int     `json:"time_signature"`
 }
 
 type Image struct {
@@ -129,6 +131,10 @@ type ArtistsAlbumsResponse struct {
 type AlbumsTracksResponse struct {
 	Items []Track `json:"items"`
 	Next  string  `json:"next"`
+}
+
+type AudioFeaturesResponse struct {
+	AudioFeatures []AudioFeatures `json:"audio_features"`
 }
 
 type TokenResponse struct {
