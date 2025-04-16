@@ -116,8 +116,17 @@ func fetchAllResults[T any](token string, initialURL string) ([]*T, error) {
 	return results, nil
 }
 
-func GetAudioFeatures(token string, tracks []Track) ([]Track, error) {
-	trackMap := make(map[string]Track)
+func GetUser(token string) (*User, error) {
+	url := fmt.Sprintf("%sme", spotifyAPIURL)
+	response, err := fetchAllResults[User](token, url)
+	if err != nil {
+		return nil, err
+	}
+	return response[0], nil
+}
+
+func GetAudioFeatures(token string, tracks []*Track) ([]*Track, error) {
+	trackMap := make(map[string]*Track)
 	for _, track := range tracks {
 		trackMap[track.Id] = track
 	}
@@ -138,12 +147,12 @@ func GetAudioFeatures(token string, tracks []Track) ([]Track, error) {
 		for _, audioFeatures := range responses[0].AudioFeatures {
 			id := audioFeatures.Id
 			track := trackMap[id]
-			track.AudioFeatures = audioFeatures
+			track.AudioFeatures = &audioFeatures
 			trackMap[id] = track
 		}
 	}
 
-	result := make([]Track, 0, len(trackMap))
+	result := make([]*Track, 0, len(trackMap))
 	for _, track := range trackMap {
 		result = append(result, track)
 	}
@@ -151,7 +160,7 @@ func GetAudioFeatures(token string, tracks []Track) ([]Track, error) {
 	return result, nil
 }
 
-func GetUsersTopTracks(token string) ([]Track, error) {
+func GetUsersTopTracks(token string) ([]*Track, error) {
 	url := fmt.Sprintf("%sme/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersTopTracksResponse](token, url)
@@ -159,9 +168,11 @@ func GetUsersTopTracks(token string) ([]Track, error) {
 		return nil, err
 	}
 
-	var allTracks []Track
+	var allTracks []*Track
 	for _, response := range responses {
-		allTracks = append(allTracks, response.Items...)
+		for i := range response.Items {
+			allTracks = append(allTracks, &response.Items[i])
+		}
 	}
 
 	return allTracks, nil

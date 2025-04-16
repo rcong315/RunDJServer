@@ -38,7 +38,7 @@ func initDB() error {
 	return nil
 }
 
-func GetDB() (*pgxpool.Pool, error) {
+func getDB() (*pgxpool.Pool, error) {
 	dbOnce.Do(func() {
 		initError = initDB()
 	})
@@ -62,7 +62,7 @@ func processBatchResults(br pgx.BatchResults, count int) error {
 }
 
 func batchAndSave(items any, insertQuery string, paramConverter func(item any) []any) error {
-	db, err := GetDB()
+	db, err := getDB()
 	if err != nil {
 		return fmt.Errorf("database connection error: %v", err)
 	}

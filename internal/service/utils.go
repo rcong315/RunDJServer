@@ -26,13 +26,13 @@ var presetPlaylists = map[int]string{
 	190: "37i9dQZF1EIcID9rq1OAoH",
 }
 
-func convertSpotifyUserToDBUser(user spotify.User) db.User {
+func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 	imageURLs := make([]string, len(user.ImageURLs))
 	for i, img := range user.ImageURLs {
 		imageURLs[i] = img.URL
 	}
 
-	return db.User{
+	return &db.User{
 		UserId:      user.Id,
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
@@ -43,7 +43,7 @@ func convertSpotifyUserToDBUser(user spotify.User) db.User {
 	}
 }
 
-func convertSpotifyTrackToDBTrack(userId string, track spotify.Track) db.Track {
+func convertSpotifyTrackToDBTrack(userId string, track *spotify.Track) *db.Track {
 	artistIds := make([]string, len(track.Artists))
 	for i, artist := range track.Artists {
 		artistIds[i] = artist.Id
@@ -58,7 +58,7 @@ func convertSpotifyTrackToDBTrack(userId string, track spotify.Track) db.Track {
 		Popularity:       track.Popularity,
 		DurationMS:       track.DurationMS,
 		AvailableMarkets: track.AvailableMarkets,
-		AudioFeatures: db.AudioFeatures{
+		AudioFeatures: &db.AudioFeatures{
 			Danceability:      audioFeatures.Danceability,
 			Energy:            audioFeatures.Energy,
 			Key:               audioFeatures.Key,
@@ -75,5 +75,5 @@ func convertSpotifyTrackToDBTrack(userId string, track spotify.Track) db.Track {
 		},
 	}
 
-	return dbTrack
+	return &dbTrack
 }

@@ -1,8 +1,6 @@
 package service
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/rcong315/RunDJServer/internal/db"
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
@@ -36,30 +35,9 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	apiURL := fmt.Sprintf("%s/me", spotifyAPIURL)
-	req, err := http.NewRequest("GET", apiURL, nil)
+	user, err := spotify.GetUser(accessToken)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
-		return
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error making GET request: " + err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		c.JSON(resp.StatusCode, gin.H{"error": "Error from Spotify server: " + err.Error()})
-		return
-	}
-
-	var user spotify.User
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding response: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err})
 		return
 	}
 
@@ -112,4 +90,27 @@ func PresetPlaylistHandler(c *gin.Context) {
 	}
 
 	c.String(http.StatusOK, playlistId)
+}
+
+func MatchingTracksHandler(c *gin.Context) {
+	bpmStr := c.Query("bpm")
+	if bpmStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
+		return
+	}
+
+	bpm, err := strconv.ParseFloat(bpmStr, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
+		return
+	}
+
+	roundedBPM := int(math.Round(float64(bpm)/5) * 5)
+
+	min := roundedBPM - 2
+	max := roundedBPM + 2
+
+	db.GetTracksByBPM(userId, min, max)
+
+	c.JSON(http.StatusOK, gin.H{"": roundedBPM - 1, roundedBPM, roundedBPM + 1})
 }

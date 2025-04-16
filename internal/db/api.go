@@ -6,8 +6,8 @@ import (
 	"log"
 )
 
-func SaveUser(user User) error {
-	db, err := GetDB()
+func SaveUser(user *User) error {
+	db, err := getDB()
 	if err != nil {
 		return fmt.Errorf("database connection error: %v", err)
 	}
@@ -28,8 +28,8 @@ func SaveUser(user User) error {
 	return nil
 }
 
-func SaveTracks(userId string, tracks []Track, source string) error {
-	log.Printf("Saving %d tracks", len(tracks))
+func SaveTracks(userId string, tracks *[]Track, source string) error {
+	log.Printf("Saving %d tracks", len(*tracks))
 	err := batchAndSave(tracks, InsertTrackQuery, func(item any) []any {
 		track := item.(Track)
 		return []any{
@@ -40,7 +40,7 @@ func SaveTracks(userId string, tracks []Track, source string) error {
 			track.Popularity,
 			track.DurationMS,
 			track.AvailableMarkets,
-			track.AudioFeatures,
+			*track.AudioFeatures,
 		}
 	})
 
@@ -49,7 +49,7 @@ func SaveTracks(userId string, tracks []Track, source string) error {
 	}
 
 	var userTrackRelations []UserTrackRelation
-	for _, track := range tracks {
+	for _, track := range *tracks {
 		userTrackRelation := UserTrackRelation{
 			UserId:  userId,
 			TrackId: track.TrackId,
@@ -72,6 +72,20 @@ func SaveTracks(userId string, tracks []Track, source string) error {
 	}
 
 	return nil
+}
+
+func GetTracksByBPM(userId string, min int, max int) (*[]Track, error) {
+	db, err := getDB()
+	if err != nil {
+		return nil, fmt.Errorf("database connection error: %v", err)
+	}
+
+	result, err := db.Exec(context.Background(), "SELECT * FROM track")
+	if err != nil {
+		return nil, fmt.Errorf("database execution error: %v", err)
+	}
+
+	return result, nil
 }
 
 // func SaveAlbums(userId string, albums []Album) error {

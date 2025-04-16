@@ -25,15 +25,16 @@ type AudioFeatures struct {
 	Duration          int     `json:"duration_ms"`
 	TimeSignature     int     `json:"time_signature"`
 }
+
 type Track struct {
-	TrackId          string        `json:"track_id"`
-	Name             string        `json:"name"`
-	ArtistIds        []string      `json:"artist_ids"`
-	AlbumId          string        `json:"album_id"`
-	Popularity       int           `json:"popularity"`
-	DurationMS       int           `json:"duration_ms"`
-	AvailableMarkets []string      `json:"available_markets"`
-	AudioFeatures    AudioFeatures `json:"audio_features"`
+	TrackId          string         `json:"track_id"`
+	Name             string         `json:"name"`
+	ArtistIds        []string       `json:"artist_ids"`
+	AlbumId          string         `json:"album_id"`
+	Popularity       int            `json:"popularity"`
+	DurationMS       int            `json:"duration_ms"`
+	AvailableMarkets []string       `json:"available_markets"`
+	AudioFeatures    *AudioFeatures `json:"audio_features"`
 }
 
 type Album struct {

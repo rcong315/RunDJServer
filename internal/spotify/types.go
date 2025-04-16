@@ -13,27 +13,27 @@ type User struct {
 }
 
 type Track struct {
-	Id               string        `json:"id"`
-	Name             string        `json:"name"`
-	Album            Album         `json:"album"`
-	Artists          []Artist      `json:"artists"`
-	Popularity       int           `json:"popularity"`
-	DurationMS       int           `json:"duration_ms"`
-	AvailableMarkets []string      `json:"available_markets"`
-	AudioFeatures    AudioFeatures `json:"audio_features"`
+	Id               string         `json:"id"`
+	Name             string         `json:"name"`
+	Album            *Album         `json:"album"`
+	Artists          []*Artist      `json:"artists"`
+	Popularity       int            `json:"popularity"`
+	DurationMS       int            `json:"duration_ms"`
+	AvailableMarkets []string       `json:"available_markets"`
+	AudioFeatures    *AudioFeatures `json:"audio_features"`
 }
 
 type Album struct {
-	Id               string   `json:"id"`
-	Name             string   `json:"name"`
-	Artists          []Artist `json:"artists"`
-	Genres           []string `json:"genres"`
-	Popularity       int      `json:"popularity"`
-	AlbumType        string   `json:"album_type"`
-	TotalTracks      int      `json:"total_tracks"`
-	ReleaseDate      string   `json:"release_date"`
-	AvailableMarkets []string `json:"available_markets"`
-	Images           []Image  `json:"images"`
+	Id               string    `json:"id"`
+	Name             string    `json:"name"`
+	Artists          []*Artist `json:"artists"`
+	Genres           []string  `json:"genres"`
+	Popularity       int       `json:"popularity"`
+	AlbumType        string    `json:"album_type"`
+	TotalTracks      int       `json:"total_tracks"`
+	ReleaseDate      string    `json:"release_date"`
+	AvailableMarkets []string  `json:"available_markets"`
+	Images           []Image   `json:"images"`
 }
 
 type Artist struct {
@@ -135,6 +135,10 @@ type AlbumsTracksResponse struct {
 
 type AudioFeaturesResponse struct {
 	AudioFeatures []AudioFeatures `json:"audio_features"`
+}
+
+type WhoAmIResponse struct {
+	Id string `json:"id"`
 }
 
 type TokenResponse struct {

@@ -41,32 +41,32 @@ func loadConfig() (*Config, error) {
 	return config, nil
 }
 
-func MapTracksToArray(m map[string]Track) []Track {
-	arr := make([]Track, 0, len(m))
+func MapTracksToArray(m map[string]*Track) []*Track {
+	arr := make([]*Track, 0, len(m))
 	for _, v := range m {
 		arr = append(arr, v)
 	}
 	return arr
 }
 
-func MapAlbumsToArray(m map[string]Album) []Album {
-	arr := make([]Album, 0, len(m))
+func MapAlbumsToArray(m map[string]*Album) []*Album {
+	arr := make([]*Album, 0, len(m))
 	for _, v := range m {
 		arr = append(arr, v)
 	}
 	return arr
 }
 
-func MapArtistsToArray(m map[string]Artist) []Artist {
-	arr := make([]Artist, 0, len(m))
+func MapArtistsToArray(m map[string]*Artist) []*Artist {
+	arr := make([]*Artist, 0, len(m))
 	for _, v := range m {
 		arr = append(arr, v)
 	}
 	return arr
 }
 
-func MapPlaylistsToArray(m map[string]Playlist) []Playlist {
-	arr := make([]Playlist, 0, len(m))
+func MapPlaylistsToArray(m map[string]*Playlist) []*Playlist {
+	arr := make([]*Playlist, 0, len(m))
 	for _, v := range m {
 		arr = append(arr, v)
 	}
