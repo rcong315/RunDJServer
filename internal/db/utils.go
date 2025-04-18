@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync"
 
+	// TODO: upgrade to v5
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

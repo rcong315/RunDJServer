@@ -32,13 +32,13 @@ const (
 		)
 		ON CONFLICT (track_id) DO UPDATE 
 		SET 
-			name = $2,
-			artist_ids = $3,
-			album_id = $4,
-			popularity = $5,
-			duration_ms = $6,
-			available_markets = $7,
-			audio_features = $8
+			name = EXCLUDED.name,
+			artist_ids = EXCLUDED.artist_ids,
+			album_id = EXCLUDED.album_id,
+			popularity = EXCLUDED.popularity,
+			duration_ms = EXCLUDED.duration_ms,
+			available_markets = EXCLUDED.available_markets,
+			audio_features = EXCLUDED.audio_features
 	`
 
 	UpdateAudioFeaturesQuery = `
@@ -113,13 +113,9 @@ const (
 	`
 
 	InsertUserTrackRelationQuery = `
-		INSERT INTO "user_track_relation" (
-			user_id,
-			track_id,
-			sources
-		)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, track_id) DO UPDATE
-		SET sources = array_cat(user_track_relation.sources, $3)
+		INSERT INTO "user_track_relation" (user_id, track_id, sources)
+		VALUES ($1, $2, $3) ON CONFLICT (user_id, track_id) DO
+		UPDATE
+		SET sources = array_cat(user_track_relation.sources, EXCLUDED.sources)
 	`
 )

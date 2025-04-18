@@ -83,6 +83,18 @@ type Image struct {
 	URL string `json:"url"`
 }
 
+type RecommendationsResponse struct {
+	Seeds []struct {
+		InitialPoolSize     int    `json:"initialPoolSize"`
+		AfterFilteringSize  int    `json:"afterFilteringSize"`
+		AlfterRelinkingSize int    `json:"afterRelinkingSize"`
+		Id                  string `json:"id"`
+		Type                string `json:"type"`
+		Href                string `json:"href"`
+	} `json:"seeds"`
+	Tracks []Track `json:"tracks"`
+}
+
 type UsersSavedTrackItem struct {
 	Track Track `json:"track"`
 }
