@@ -91,12 +91,6 @@ func PresetPlaylistHandler(c *gin.Context) {
 
 func RecommendationsHandler(c *gin.Context) {
 	log.Printf("RecommendationsHandler called")
-	accessToken := c.Query("access_token")
-	if accessToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
-		return
-	}
-
 	seedArtists := c.QueryArray("seed_artists")
 	seedGenres := c.QueryArray("seed_genres")
 	if len(seedArtists) == 0 && len(seedGenres) == 0 {
