@@ -129,7 +129,10 @@ func GetUser(token string) (*User, error) {
 }
 
 func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxTempo float64) ([]*Track, error) {
-	token := GetSecretToken()
+	token, err := getSecretToken()
+	if err != nil {
+		return nil, err
+	}
 
 	url := fmt.Sprintf("%srecommendations?limit=%d&", spotifyAPIURL, 100)
 	if len(seedArtists) > 0 {
@@ -162,7 +165,10 @@ func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxT
 }
 
 func getAudioFeatures(tracks []*Track) ([]*Track, error) {
-	token := GetSecretToken()
+	token, err := getSecretToken()
+	if err != nil {
+		return nil, err
+	}
 
 	trackMap := make(map[string]*Track)
 	for _, track := range tracks {
