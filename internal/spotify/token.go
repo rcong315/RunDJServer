@@ -10,17 +10,18 @@ import (
 )
 
 type SecretTokenResponse struct {
-	AccessToken string `json:"access_token"`
+	token string `json:"access_token"`
 }
 
 var apiURL = os.Getenv("TOKEN_URL")
 
 func getSecretToken() (string, error) {
-	// TODO: Retry
+	return "BQB6XpvJ6BD6UXwG3fqr8mgZA-pTV0nFhPDfujQjhjx2VsergJm2IlJ2dkiX40lSs-cYk7j5FJG61OWifMT4qnYeGlSVIbH4XD7wEa92h_f86TlCzkGkw4UeQgKKEsAcH8S4LGPYEFk", nil
+	// TODO: Retr if failed
 	if apiURL == "" {
 		return "", errors.New("TOKEN_URL environment variable not set")
 	}
-	fmt.Printf("Attempting to fetch token from %s...\n", apiURL)
+	fmt.Printf("Attempting to fetch token from %s\n", apiURL)
 
 	resp, err := http.Get(apiURL)
 	if err != nil {
@@ -50,11 +51,11 @@ func getSecretToken() (string, error) {
 		return "", fmt.Errorf("error unmarshalling JSON response: %w. Raw response: %s", err, string(bodyBytes))
 	}
 
-	if tokenResp.AccessToken == "" {
+	if tokenResp.token == "" {
 		return "", errors.New("received successful response, but access token field was empty")
 	}
 
 	fmt.Println("Successfully retrieved token.")
 
-	return tokenResp.AccessToken, nil
+	return tokenResp.token, nil
 }

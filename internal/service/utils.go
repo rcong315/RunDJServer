@@ -43,6 +43,8 @@ func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 	}
 }
 
+// TODO: Combine spotify and db types
+
 func convertSpotifyTrackToDBTrack(userId string, track *spotify.Track) *db.Track {
 	artistIds := make([]string, len(track.Artists))
 	for i, artist := range track.Artists {
@@ -76,4 +78,62 @@ func convertSpotifyTrackToDBTrack(userId string, track *spotify.Track) *db.Track
 	}
 
 	return &dbTrack
+}
+
+func convertSpotifyPlaylistToDBPlaylist(userId string, playlist *spotify.Playlist) *db.Playlist {
+	imageURLs := make([]string, len(playlist.Images))
+	for i, img := range playlist.Images {
+		imageURLs[i] = img.URL
+	}
+
+	return &db.Playlist{
+		PlaylistId:  playlist.Id,
+		Name:        playlist.Name,
+		Description: playlist.Description,
+		OwnerId:     playlist.Owner.Id,
+		Public:      playlist.Public,
+		Followers:   playlist.Followers.Total,
+		ImageURLs:   imageURLs,
+	}
+}
+
+func convertSpotifyAlbumToDBAlbum(userId string, album *spotify.Album) *db.Album {
+	artistIds := make([]string, len(album.Artists))
+	for i, artist := range album.Artists {
+		artistIds[i] = artist.Id
+	}
+
+	imageURLs := make([]string, len(album.Images))
+	for i, img := range album.Images {
+		imageURLs[i] = img.URL
+	}
+
+	return &db.Album{
+		AlbumId:          album.Id,
+		Name:             album.Name,
+		ArtistIds:        artistIds,
+		Genres:           album.Genres,
+		Popularity:       album.Popularity,
+		AlbumType:        album.AlbumType,
+		TotalTracks:      album.TotalTracks,
+		ReleaseDate:      album.ReleaseDate,
+		AvailableMarkets: album.AvailableMarkets,
+		ImageURLs:        imageURLs,
+	}
+}
+
+func convertSpotifyArtistToDBArtist(userId string, artist *spotify.Artist) *db.Artist {
+	imageURLs := make([]string, len(artist.Images))
+	for i, img := range artist.Images {
+		imageURLs[i] = img.URL
+	}
+
+	return &db.Artist{
+		ArtistId:   artist.Id,
+		Name:       artist.Name,
+		Genres:     artist.Genres,
+		Popularity: artist.Popularity,
+		Followers:  artist.Followers.Total,
+		ImageURLs:  imageURLs,
+	}
 }

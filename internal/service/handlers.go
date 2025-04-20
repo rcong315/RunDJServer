@@ -32,31 +32,22 @@ func ThanksHandler(c *gin.Context) {
 
 func RegisterHandler(c *gin.Context) {
 	log.Printf("RegisterHandler called")
-	accessToken := c.Query("access_token")
-	if accessToken == "" {
+	token := c.Query("access_token")
+	if token == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
 		return
 	}
 
-	user, err := spotify.GetUser(accessToken)
+	user, err := spotify.GetUser(token)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
 		return
 	}
-
 	saveUser(user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving user: " + err.Error()})
-		return
-	}
-	log.Printf("Created new user: Id=%s, Email=%s, DisplayName=%s\n",
-		user.Id, user.Email, user.DisplayName)
 
-	go func(accessToken, userId string) {
-		log.Printf("Getting all tracks for user %s\n", userId)
-		tracks, _ := spotify.GetUsersTopTracks(accessToken)
-		saveTracks(userId, tracks, "top tracks")
-	}(accessToken, user.Id)
+	go func(token, userId string) {
+		saveAllTracks(token, userId)
+	}(token, user.Id)
 
 	c.JSON(http.StatusOK, Message{
 		Status:  "success",
@@ -128,12 +119,12 @@ func RecommendationsHandler(c *gin.Context) {
 
 // func MatchingTracksHandler(c *gin.Context) {
 // 	log.Printf("MatchingTracksHandler called")
-// 	accessToken := c.Query("access_token")
-// 	if accessToken == "" {
+// 	token := c.Query("access_token")
+// 	if token == "" {
 // 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
 // 		return
 // 	}
-// 	user, err := spotify.GetUser(accessToken)
+// 	user, err := spotify.GetUser(token)
 // 	if err != nil {
 // 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
 // 		return

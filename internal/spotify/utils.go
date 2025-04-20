@@ -87,7 +87,7 @@ func getNextURL(response any) string {
 		return r.Next
 	case *UsersFollowedArtistsResponse:
 		return r.Artists.Next
-	case *ArtistsTopTrackResponse:
+	case *ArtistsTopTracksResponse:
 		return ""
 	case *ArtistsAlbumsResponse:
 		return r.Next

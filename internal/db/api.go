@@ -28,7 +28,13 @@ func SaveUser(user *User) error {
 	return nil
 }
 
+// TODO: Common function for saving relations
+
 func SaveTracks(userId string, tracks []*Track, source string) error {
+	if len(tracks) == 0 {
+		return nil
+	}
+
 	log.Printf("Saving %d tracks", len(tracks))
 	err := batchAndSave(tracks, InsertTrackQuery, func(item any) []any {
 		track := item.(Track)
@@ -44,7 +50,6 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 			source,
 		}
 	})
-
 	if err != nil {
 		return fmt.Errorf("error saving tracks: %v", err)
 	}
@@ -67,7 +72,6 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 			userTrackRelation.Sources,
 		}
 	})
-
 	if err != nil {
 		return fmt.Errorf("error saving user track relations: %v", err)
 	}
@@ -75,65 +79,151 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 	return nil
 }
 
-// func GetTracksByBPM(userId string, min int, max int) ([]*Track, error) {
-// 	db, err := getDB()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("database connection error: %v", err)
-// 	}
+func SavePlaylists(userId string, playlists []*Playlist, source string) error {
+	if len(playlists) == 0 {
+		return nil
+	}
 
-// 	result, err := db.Exec(context.Background(), "SELECT * FROM track")
-// 	if err != nil {
-// 		return nil, fmt.Errorf("database execution error: %v", err)
-// 	}
+	err := batchAndSave(playlists, InsertPlaylistQuery, func(item any) []any {
+		playlist := item.(Playlist)
+		return []any{
+			playlist.PlaylistId,
+			userId,
+			playlist.OwnerId,
+			playlist.Name,
+			playlist.Description,
+			playlist.Public,
+			playlist.ImageURLs,
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("error saving playlists: %v", err)
+	}
 
-// 	return result, nil
-// }
+	var userPlaylistRelations []UserPlaylistRelation
+	for _, playlist := range playlists {
+		userPlaylistRelation := UserPlaylistRelation{
+			UserId:     userId,
+			PlaylistId: playlist.PlaylistId,
+			Sources:    []string{source},
+		}
+		userPlaylistRelations = append(userPlaylistRelations, userPlaylistRelation)
+	}
+	log.Printf("Saving %d user playlist relations for user %s", len(userPlaylistRelations), userId)
+	err = batchAndSave(userPlaylistRelations, InsertUserPlaylistRelationQuery, func(item any) []any {
+		userPlaylistRelation := item.(UserPlaylistRelation)
+		return []any{
+			userPlaylistRelation.UserId,
+			userPlaylistRelation.PlaylistId,
+			userPlaylistRelation.Sources,
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("error saving user playlist relations: %v", err)
+	}
 
-// func SaveAlbums(userId string, albums []Album) error {
-// 	return batchAndSave(userId, albums, InsertAlbumQuery, func(userId string, item any) []any {
-// 		album := item.(Album)
-// 		return []any{
-// 			album.AlbumId,
-// 			userId,
-// 			album.Name,
-// 			album.ArtistIds,
-// 			album.Genres,
-// 			album.Popularity,
-// 			album.AlbumType,
-// 			album.TotalTracks,
-// 			album.ReleaseDate,
-// 			album.AvailableMarkets,
-// 			album.ImageURLs,
-// 		}
-// 	})
-// }
+	return nil
+}
 
-// func SaveArtists(userId string, artists []Artist) error {
-// 	return batchAndSave(userId, artists, InsertArtistQuery, func(userId string, item any) []any {
-// 		artist := item.(Artist)
-// 		return []any{
-// 			artist.ArtistId,
-// 			userId,
-// 			artist.Name,
-// 			artist.Genres,
-// 			artist.Popularity,
-// 			artist.Followers,
-// 			artist.ImageURLs,
-// 		}
-// 	})
-// }
+func SaveArtists(userId string, artists []*Artist, source string) error {
+	if len(artists) == 0 {
+		return nil
+	}
 
-// func SavePlaylists(userId string, playlists []Playlist) error {
-// 	return batchAndSave(userId, playlists, InsertPlaylistQuery, func(userId string, item any) []any {
-// 		playlist := item.(Playlist)
-// 		return []any{
-// 			playlist.PlaylistId,
-// 			userId,
-// 			playlist.OwnerId,
-// 			playlist.Name,
-// 			playlist.Description,
-// 			playlist.Public,
-// 			playlist.ImageURLs,
-// 		}
-// 	})
-// }
+	err := batchAndSave(artists, InsertArtistQuery, func(item any) []any {
+		artist := item.(Artist)
+		return []any{
+			artist.ArtistId,
+			userId,
+			artist.Name,
+			artist.Genres,
+			artist.Popularity,
+			artist.Followers,
+			artist.ImageURLs,
+		}
+	})
+
+	if err != nil {
+		return fmt.Errorf("error saving artists: %v", err)
+	}
+
+	var userArtistRelations []UserArtistRelation
+	for _, artist := range artists {
+		userArtistRelation := UserArtistRelation{
+			UserId:   userId,
+			ArtistId: artist.ArtistId,
+			Sources:  []string{source},
+		}
+		userArtistRelations = append(userArtistRelations, userArtistRelation)
+	}
+	log.Printf("Saving %d user artist relations for user %s", len(userArtistRelations), userId)
+	err = batchAndSave(userArtistRelations, InsertUserArtistRelationQuery, func(item any) []any {
+		userArtistRelation := item.(UserArtistRelation)
+		return []any{
+			userArtistRelation.UserId,
+			userArtistRelation.ArtistId,
+			userArtistRelation.Sources,
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("error saving user artist relations: %v", err)
+	}
+
+	return nil
+}
+
+func SaveAlbums(userId string, albums []*Album, source string) error {
+	if len(albums) == 0 {
+		return nil
+	}
+
+	log.Printf("Saving %d albums", len(albums))
+	err := batchAndSave(albums, InsertAlbumQuery, func(item any) []any {
+		album := item.(Album)
+		return []any{
+			album.AlbumId,
+			userId,
+			album.Name,
+			album.ArtistIds,
+			album.Genres,
+			album.Popularity,
+			album.AlbumType,
+			album.TotalTracks,
+			album.ReleaseDate,
+			album.AvailableMarkets,
+			album.ImageURLs,
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("error saving albums: %v", err)
+	}
+
+	var userAlbumRelations []UserAlbumRelation
+	for _, album := range albums {
+		userAlbumRelation := UserAlbumRelation{
+			UserId:  userId,
+			AlbumId: album.AlbumId,
+			Sources: []string{source},
+		}
+		userAlbumRelations = append(userAlbumRelations, userAlbumRelation)
+	}
+	log.Printf("Saving %d user album relations for user %s", len(userAlbumRelations), userId)
+	err = batchAndSave(userAlbumRelations, InsertUserAlbumRelationQuery, func(item any) []any {
+		userAlbumRelation := item.(UserAlbumRelation)
+		return []any{
+			userAlbumRelation.UserId,
+			userAlbumRelation.AlbumId,
+			userAlbumRelation.Sources,
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("error saving user album relations: %v", err)
+	}
+
+	return nil
+}
+
+// TODO: Get tracks by BPM
+func GetTracksByBPM(userId string, min int, max int) ([]*Track, error) {
+	return nil, nil
+}

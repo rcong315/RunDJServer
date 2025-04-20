@@ -37,6 +37,16 @@ type Track struct {
 	AudioFeatures    *AudioFeatures `json:"audio_features"`
 }
 
+type Playlist struct {
+	PlaylistId  string   `json:"playlist_id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	OwnerId     string   `json:"owner_id"`
+	Public      bool     `json:"public"`
+	ImageURLs   []string `json:"image_urls"`
+	Followers   int      `json:"followers"`
+}
+
 type Album struct {
 	AlbumId          string   `json:"album_id"`
 	Name             string   `json:"name"`
@@ -57,16 +67,6 @@ type Artist struct {
 	Popularity int      `json:"popularity"`
 	Followers  int      `json:"followers"`
 	ImageURLs  []string `json:"image_urls"`
-}
-
-type Playlist struct {
-	PlaylistId  string   `json:"playlist_id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	OwnerId     string   `json:"owner_id"`
-	Public      bool     `json:"public"`
-	ImageURLs   []string `json:"image_urls"`
-	Followers   int      `json:"followers"`
 }
 
 type UserTrackRelation struct {

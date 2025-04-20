@@ -1,7 +1,7 @@
 // *** DEPRECATED ***
 // This file is no longer used. Functionality is replaced by the Spotify API.
 
-// package bpm
+package bpm
 
 // import (
 // 	"encoding/json"

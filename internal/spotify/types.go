@@ -131,13 +131,22 @@ type UsersFollowedArtistsResponse struct {
 	} `json:"artists"`
 }
 
-type ArtistsTopTrackResponse struct {
+type ArtistsTopTracksResponse struct {
 	Tracks []Track `json:"tracks"`
 }
 
 type ArtistsAlbumsResponse struct {
 	Items []Album `json:"items"`
 	Next  string  `json:"next"`
+}
+
+type SavedAlbum struct {
+	Album Album `json:"album"`
+}
+
+type UsersSavedAlbumsResponse struct {
+	Items []SavedAlbum `json:"items"`
+	Next  string       `json:"next"`
 }
 
 type AlbumsTracksResponse struct {
@@ -154,7 +163,7 @@ type WhoAmIResponse struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
+	Token        string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token,omitempty"`

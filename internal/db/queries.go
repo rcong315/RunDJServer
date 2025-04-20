@@ -1,6 +1,6 @@
 package db
 
-// SQL queries for database operations
+// TODO: Migrate to sql files
 const (
 	InsertUserQuery = `
 		INSERT INTO "user" (
@@ -41,10 +41,42 @@ const (
 			audio_features = EXCLUDED.audio_features
 	`
 
-	UpdateAudioFeaturesQuery = `
-		UPDATE "track"
-		SET audio_features = $2
-		WHERE track_id = $1
+	InsertPlaylistQuery = `
+		INSERT INTO "playlist" (
+			playlist_id,
+			owner_id,
+			name,
+			description,
+			public,
+			image_urls
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (playlist_id) DO UPDATE
+		SET
+			owner_id = $2,
+			name = $3,
+			description = $4,
+			public = $5,
+			image_urls = $6
+	`
+
+	InsertArtistQuery = `
+		INSERT INTO "artist" (
+			artist_id,
+			name,
+			genres,
+			popularity,
+			followers,
+			image_urls
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (artist_id) DO UPDATE
+		SET
+			name = $2,
+			genres = $3,
+			popularity = $4,
+			followers = $5,
+			image_urls = $6
 	`
 
 	InsertAlbumQuery = `
@@ -74,48 +106,31 @@ const (
 			image_urls = $10
 	`
 
-	InsertArtistQuery = `
-		INSERT INTO "artist" (
-			artist_id,
-			name,
-			genres,
-			popularity,
-			followers,
-			image_urls
-		)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (artist_id) DO UPDATE
-		SET
-			name = $2,
-			genres = $3,
-			popularity = $4,
-			followers = $5,
-			image_urls = $6
-	`
-
-	InsertPlaylistQuery = `
-		INSERT INTO "playlist" (
-			playlist_id,
-			owner_id,
-			name,
-			description,
-			public,
-			image_urls
-		)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (playlist_id) DO UPDATE
-		SET
-			owner_id = $2,
-			name = $3,
-			description = $4,
-			public = $5,
-			image_urls = $6
-	`
-
 	InsertUserTrackRelationQuery = `
 		INSERT INTO "user_track_relation" (user_id, track_id, sources)
 		VALUES ($1, $2, $3) ON CONFLICT (user_id, track_id) DO
 		UPDATE
 		SET sources = array_cat(user_track_relation.sources, EXCLUDED.sources)
+	`
+
+	InsertUserPlaylistRelationQuery = `
+		INSERT INTO "user_playlist_relation" (user_id, playlist_id, sources)
+		VALUES ($1, $2, $3) ON CONFLICT (user_id, playlist_id) DO
+		UPDATE
+		SET sources = array_cat(user_playlist_relation.sources, EXCLUDED.sources
+	`
+
+	InsertUserArtistRelationQuery = `
+		INSERT INTO "user_artist_relation" (user_id, artist_id, sources)
+		VALUES ($1, $2, $3) ON CONFLICT (user_id, artist_id) DO
+		UPDATE
+		SET sources = array_cat(user_artist_relation.sources, EXCLUDED.sources
+	`
+
+	InsertUserAlbumRelationQuery = `
+		INSERT INTO "user_album_relation" (user_id, album_id, sources)
+		VALUES ($1, $2, $3) ON CONFLICT (user_id, album_id) DO
+		UPDATE
+		SET sources = array_cat(user_album_relation.sources, EXCLUDED.sources
 	`
 )
