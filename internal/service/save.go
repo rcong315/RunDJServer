@@ -11,7 +11,7 @@ func saveUser(user *spotify.User) {
 	dbUser := convertSpotifyUserToDBUser(user)
 	err := db.SaveUser(dbUser)
 	if err != nil {
-		log.Printf("Error saving user: %v", err)
+		log.Print(err)
 	} else {
 		log.Printf("User saved: %s", user.Id)
 	}
@@ -27,14 +27,14 @@ func saveTracks(userId string, tracks []*spotify.Track, source string) {
 
 	err := db.SaveTracks(userId, trackData, source)
 	if err != nil {
-		log.Printf("Error saving %d tracks for user %s from source %s", len(tracks), userId, source)
+		log.Print(err)
 	} else {
-		log.Printf("Saved %d tracks for user %s from source %s", len(tracks), userId, source)
+		log.Printf("Saved %d tracks", len(trackData))
 	}
 }
 
 func savePlaylists(userId string, playlists []*spotify.Playlist, source string) {
-	log.Printf("Saving %d playlists for user %s", len(playlists), userId)
+	log.Printf("Saving %d playlists for user %s from source %s", len(playlists), userId, source)
 	var playlistData []*db.Playlist
 	for _, playlist := range playlists {
 		dbPlaylist := convertSpotifyPlaylistToDBPlaylist(userId, playlist)
@@ -45,12 +45,12 @@ func savePlaylists(userId string, playlists []*spotify.Playlist, source string) 
 	if err != nil {
 		log.Printf("Error saving playlists: %v", err)
 	} else {
-		log.Printf("Saved playlists for user %s", userId)
+		log.Printf("Saved %d playlists", len(playlistData))
 	}
 }
 
 func saveArtists(userId string, artists []*spotify.Artist, source string) {
-	log.Printf("Saving %d artists for user %s", len(artists), userId)
+	log.Printf("Saving %d artists for user %s from source %s", len(artists), userId, source)
 	var artistData []*db.Artist
 	for _, artist := range artists {
 		dbArtist := convertSpotifyArtistToDBArtist(userId, artist)
@@ -61,12 +61,12 @@ func saveArtists(userId string, artists []*spotify.Artist, source string) {
 	if err != nil {
 		log.Printf("Error saving artists: %v", err)
 	} else {
-		log.Printf("Saved artists for user %s", userId)
+		log.Printf("Saved %d artists", len(artistData))
 	}
 }
 
 func saveAlbums(userId string, albums []*spotify.Album, source string) {
-	log.Printf("Saving %d albums for user %s", len(albums), userId)
+	log.Printf("Saving %d albums for user %s from source %s", len(albums), userId, source)
 	var albumData []*db.Album
 	for _, album := range albums {
 		dbAlbum := convertSpotifyAlbumToDBAlbum(userId, album)
@@ -77,7 +77,7 @@ func saveAlbums(userId string, albums []*spotify.Album, source string) {
 	if err != nil {
 		log.Printf("Error saving albums: %v", err)
 	} else {
-		log.Printf("Saved albums for user %s", userId)
+		log.Printf("Saved %d albums", len(albumData))
 	}
 }
 

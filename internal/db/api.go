@@ -35,9 +35,8 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 		return nil
 	}
 
-	log.Printf("Saving %d tracks", len(tracks))
 	err := batchAndSave(tracks, InsertTrackQuery, func(item any) []any {
-		track := item.(Track)
+		track := item.(*Track)
 		return []any{
 			track.TrackId,
 			track.Name,
@@ -85,7 +84,7 @@ func SavePlaylists(userId string, playlists []*Playlist, source string) error {
 	}
 
 	err := batchAndSave(playlists, InsertPlaylistQuery, func(item any) []any {
-		playlist := item.(Playlist)
+		playlist := item.(*Playlist)
 		return []any{
 			playlist.PlaylistId,
 			userId,
@@ -131,7 +130,7 @@ func SaveArtists(userId string, artists []*Artist, source string) error {
 	}
 
 	err := batchAndSave(artists, InsertArtistQuery, func(item any) []any {
-		artist := item.(Artist)
+		artist := item.(*Artist)
 		return []any{
 			artist.ArtistId,
 			userId,
@@ -142,7 +141,6 @@ func SaveArtists(userId string, artists []*Artist, source string) error {
 			artist.ImageURLs,
 		}
 	})
-
 	if err != nil {
 		return fmt.Errorf("error saving artists: %v", err)
 	}
@@ -177,9 +175,8 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 		return nil
 	}
 
-	log.Printf("Saving %d albums", len(albums))
 	err := batchAndSave(albums, InsertAlbumQuery, func(item any) []any {
-		album := item.(Album)
+		album := item.(*Album)
 		return []any{
 			album.AlbumId,
 			userId,

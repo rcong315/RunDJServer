@@ -125,6 +125,9 @@ func GetUser(token string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(response) == 0 {
+		return nil, fmt.Errorf("no user found")
+	}
 	return response[0], nil
 }
 

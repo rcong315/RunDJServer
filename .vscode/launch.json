@@ -8,13 +8,13 @@
             "name": "server",
             "type": "go",
             "request": "launch",
-            "mode": "debug",
-            "program": "${workspaceFolder}/cmd/run-dj-server/main.go",
+            "mode": "auto",
+            "program": "cmd/run-dj-server/main.go",
             "env": {
                 "DEBUG": "true"
             },
-            "console": "internalConsole",
-            "trace": "verbose"
+            // "console": "externalTerminal",
+            // "args": [">", "${workspaceFolder}/output.txt"]
         }
     ]
 }
