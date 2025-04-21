@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,7 +20,6 @@ var (
 
 const BatchSize = 100
 
-// --- initDB function remains the same logically ---
 func initDB() error {
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
@@ -31,17 +31,35 @@ func initDB() error {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
 
-	// Use v5 pgxpool.Connect (API is compatible)
-	pool, err := pgxpool.New(context.Background(), connString) // pgxpool.New is preferred in v5 over Connect
+	config, err := pgxpool.ParseConfig(connString)
 	if err != nil {
-		return fmt.Errorf("unable to connect to database: %v", err)
+		return fmt.Errorf("unable to parse connection string: %w", err)
+	}
+
+	// Tell the pool to use the simple protocol by default for Exec/Query calls
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
+	// Use a context with timeout for the initial connection attempt
+	connectCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	pool, err := pgxpool.NewWithConfig(connectCtx, config) // Use NewWithConfig
+	if err != nil {
+		return fmt.Errorf("unable to create connection pool: %w", err)
+	}
+
+	// Optional: Ping the database to ensure connectivity before returning
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pingCancel()
+	if err := pool.Ping(pingCtx); err != nil {
+		pool.Close() // Close pool if ping fails
+		return fmt.Errorf("unable to ping database pool: %w", err)
 	}
 
 	dbPool = pool
 	return nil
 }
 
-// --- getDB function remains the same logically ---
 func getDB() (*pgxpool.Pool, error) {
 	dbOnce.Do(func() {
 		initError = initDB()
@@ -74,35 +92,30 @@ func batchAndSave(items any, insertQuery string, paramConverter func(item any) [
 	}
 
 	ctx := context.Background()
-	// Use v5 db.Begin (API is compatible)
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %v", err)
 	}
-	// Use v5 tx.Rollback (API is compatible)
-	defer tx.Rollback(ctx) // Rollback is a safety net if Commit isn't reached
+	// Use Rollback with error checking (though often ignored in defer)
+	defer func() {
+		_ = tx.Rollback(ctx) // Ensure rollback is attempted on any exit path
+	}()
 
 	slice := reflect.ValueOf(items)
 	if slice.Kind() != reflect.Slice {
-		// Rollback explicitly here as Commit won't be reached
-		_ = tx.Rollback(ctx)
-		return fmt.Errorf("items must be a slice")
+		return fmt.Errorf("items must be a slice") // No need to explicitly rollback here, defer handles it
 	}
 
-	// Use v5 pgx.Batch (API is compatible)
 	batch := &pgx.Batch{}
 	sliceLen := slice.Len() // Get length once
 	for i := range sliceLen {
 		item := slice.Index(i).Interface()
 		params := paramConverter(item)
-		// Use v5 batch.Queue (API is compatible)
 		batch.Queue(insertQuery, params...)
 
-		// Use v5 batch.Len() (API is compatible)
 		if batch.Len() >= BatchSize {
-			// Use v5 tx.SendBatch (API is compatible)
 			br := tx.SendBatch(ctx, batch)
-			// processBatchResults uses v5 APIs internally now via br
+			// Pass the actual batch length to processBatchResults
 			if err := processBatchResults(br, batch.Len()); err != nil {
 				// Rollback already deferred, but error occurred during batch
 				return fmt.Errorf("batch execution error: %v", err)
@@ -115,19 +128,17 @@ func batchAndSave(items any, insertQuery string, paramConverter func(item any) [
 	// Process any remaining items
 	if batch.Len() > 0 {
 		br := tx.SendBatch(ctx, batch)
+		// Pass the actual batch length
 		if err := processBatchResults(br, batch.Len()); err != nil {
-			// Rollback already deferred
 			return fmt.Errorf("final batch execution error: %v", err)
 		}
 	}
 
-	// Use v5 tx.Commit (API is compatible)
 	if err := tx.Commit(ctx); err != nil {
 		// Commit failed, Rollback was already deferred but might also fail
 		return fmt.Errorf("transaction commit error: %v", err)
 	}
 
-	// If Commit succeeds, the deferred Rollback will return pgx.ErrTxCommitSuccess
-	// which is ignored by convention.
+	// If Commit succeeds, the deferred Rollback will harmlessly return pgx.ErrTxCommitSuccess
 	return nil
 }

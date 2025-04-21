@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 )
@@ -35,8 +36,24 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 		return nil
 	}
 
+	log.Printf("DEBUG: Processing track 0: ID=%s", tracks[0].TrackId)
+	// Use a pretty-printing library or fmt.Sprintf("%#v", ...) for detailed struct view
+	log.Printf("DEBUG: AudioFeatures for track 0: %#v", tracks[0].AudioFeatures)
+
 	err := batchAndSave(tracks, InsertTrackQuery, func(item any) []any {
 		track := item.(*Track)
+
+		// Marshal AudioFeatures to JSON
+		var audioFeaturesJSON string
+		if track.AudioFeatures != nil {
+			audioFeaturesBytes, err := json.Marshal(track.AudioFeatures)
+			if err != nil {
+				log.Printf("error marshaling audio features for track %s: %v", track.TrackId, err)
+			} else {
+				audioFeaturesJSON = string(audioFeaturesBytes)
+			}
+		}
+
 		return []any{
 			track.TrackId,
 			track.Name,
@@ -45,8 +62,7 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 			track.Popularity,
 			track.DurationMS,
 			track.AvailableMarkets,
-			track.AudioFeatures,
-			source,
+			audioFeaturesJSON,
 		}
 	})
 	if err != nil {
