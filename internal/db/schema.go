@@ -1,5 +1,7 @@
 package db
 
+import "time"
+
 type User struct {
 	UserId      string   `json:"user_id"`
 	Email       string   `json:"email"`
@@ -47,19 +49,6 @@ type Playlist struct {
 	Followers   int      `json:"followers"`
 }
 
-type Album struct {
-	AlbumId          string   `json:"album_id"`
-	Name             string   `json:"name"`
-	ArtistIds        []string `json:"artist_ids"`
-	Genres           []string `json:"genres"`
-	Popularity       int      `json:"popularity"`
-	AlbumType        string   `json:"album_type"`
-	TotalTracks      int      `json:"total_tracks"`
-	ReleaseDate      string   `json:"release_date"`
-	AvailableMarkets []string `json:"available_markets"`
-	ImageURLs        []string `json:"image_urls"`
-}
-
 type Artist struct {
 	ArtistId   string   `json:"artist_id"`
 	Name       string   `json:"name"`
@@ -69,22 +58,23 @@ type Artist struct {
 	ImageURLs  []string `json:"image_urls"`
 }
 
+type Album struct {
+	AlbumId          string    `json:"album_id"`
+	Name             string    `json:"name"`
+	ArtistIds        []string  `json:"artist_ids"`
+	Genres           []string  `json:"genres"`
+	Popularity       int       `json:"popularity"`
+	AlbumType        string    `json:"album_type"`
+	TotalTracks      int       `json:"total_tracks"`
+	ReleaseDate      time.Time `json:"release_date"`
+	AvailableMarkets []string  `json:"available_markets"`
+	ImageURLs        []string  `json:"image_urls"`
+}
+
 type UserTrackRelation struct {
 	UserId  string   `json:"user_id"`
 	TrackId string   `json:"track_id"`
 	Sources []string `json:"sources"`
-}
-
-type UserAlbumRelation struct {
-	UserId  string   `json:"user_id"`
-	AlbumId string   `json:"album_id"`
-	Sources []string `json:"sources"`
-}
-
-type UserArtistRelation struct {
-	UserId   string   `json:"user_id"`
-	ArtistId string   `json:"artist_id"`
-	Sources  []string `json:"sources"`
 }
 
 type UserPlaylistRelation struct {
@@ -93,14 +83,16 @@ type UserPlaylistRelation struct {
 	Sources    []string `json:"sources"`
 }
 
-type TrackAlbumRelation struct {
-	TrackId string `json:"track_id"`
-	AlbumId string `json:"album_id"`
+type UserArtistRelation struct {
+	UserId   string   `json:"user_id"`
+	ArtistId string   `json:"artist_id"`
+	Sources  []string `json:"sources"`
 }
 
-type TrackArtistRelation struct {
-	TrackId  string `json:"track_id"`
-	ArtistId string `json:"artist_id"`
+type UserAlbumRelation struct {
+	UserId  string   `json:"user_id"`
+	AlbumId string   `json:"album_id"`
+	Sources []string `json:"sources"`
 }
 
 type TrackPlaylistRelation struct {

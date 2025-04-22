@@ -7,6 +7,8 @@ import (
 	"log"
 )
 
+// TODO: Update updated_at
+
 func SaveUser(user *User) error {
 	db, err := getDB()
 	if err != nil {

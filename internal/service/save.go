@@ -116,6 +116,7 @@ func saveAllTracks(token string, userId string) {
 			log.Printf("Error getting tracks from playlist %s: %v", playlistId, err)
 		}
 		go saveTracks(userId, playlistTracks, "playlist tracks")
+		// TODO: Save track_playlist_relation
 	}
 
 	// User's top artists
