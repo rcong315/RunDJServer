@@ -38,10 +38,6 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 		return nil
 	}
 
-	log.Printf("DEBUG: Processing track 0: ID=%s", tracks[0].TrackId)
-	// Use a pretty-printing library or fmt.Sprintf("%#v", ...) for detailed struct view
-	log.Printf("DEBUG: AudioFeatures for track 0: %#v", tracks[0].AudioFeatures)
-
 	err := batchAndSave(tracks, InsertTrackQuery, func(item any) []any {
 		track := item.(*Track)
 
@@ -105,11 +101,11 @@ func SavePlaylists(userId string, playlists []*Playlist, source string) error {
 		playlist := item.(*Playlist)
 		return []any{
 			playlist.PlaylistId,
-			userId,
-			playlist.OwnerId,
 			playlist.Name,
 			playlist.Description,
+			playlist.OwnerId,
 			playlist.Public,
+			playlist.Followers,
 			playlist.ImageURLs,
 		}
 	})
@@ -151,7 +147,6 @@ func SaveArtists(userId string, artists []*Artist, source string) error {
 		artist := item.(*Artist)
 		return []any{
 			artist.ArtistId,
-			userId,
 			artist.Name,
 			artist.Genres,
 			artist.Popularity,
@@ -197,7 +192,6 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 		album := item.(*Album)
 		return []any{
 			album.AlbumId,
-			userId,
 			album.Name,
 			album.ArtistIds,
 			album.Genres,

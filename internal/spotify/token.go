@@ -16,7 +16,7 @@ type SecretTokenResponse struct {
 var apiURL = os.Getenv("TOKEN_URL")
 
 func getSecretToken() (string, error) {
-	return "BQCbhE2Ei9vaDzdGS9f_yXpnOMsmsl8h8I_JCAHftU6iphLz6NCqdQPIQksYWEqGqrloKtquIIKWVCe0Oii2_PuzrlIdYfnm1zVCFVvSh-bmsweRNwDk3UDMijwxP86EoT1x7P3OncA", nil
+	return "BQDOQ-ITQQB_cFALiZBd5SZ7yzBl1C8wGMhA3gIZcE_1JxSly1VqulHYXxw13fLES2vO3wbf6wFqM5vdIacMYE56UHkg9dN4ggYn7c1YpVyC_dZI2xT4wNQmfEwwaOJ0rxtywg2ihfU", nil
 	// TODO: Retr if failed
 	if apiURL == "" {
 		return "", errors.New("TOKEN_URL environment variable not set")

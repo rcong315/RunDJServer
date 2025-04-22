@@ -1,7 +1,5 @@
 package spotify
 
-import "time"
-
 type User struct {
 	Id          string `json:"id"`
 	Email       string `json:"email"`
@@ -33,7 +31,7 @@ type Album struct {
 	Popularity       int       `json:"popularity"`
 	AlbumType        string    `json:"album_type"`
 	TotalTracks      int       `json:"total_tracks"`
-	ReleaseDate      time.Time `json:"release_date"`
+	ReleaseDate      string    `json:"release_date"`
 	AvailableMarkets []string  `json:"available_markets"`
 	Images           []Image   `json:"images"`
 }

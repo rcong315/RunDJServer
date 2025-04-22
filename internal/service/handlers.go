@@ -45,9 +45,7 @@ func RegisterHandler(c *gin.Context) {
 	}
 	saveUser(user)
 
-	go func(token, userId string) {
-		saveAllTracks(token, userId)
-	}(token, user.Id)
+	saveAllTracks(token, user.Id)
 
 	c.JSON(http.StatusOK, Message{
 		Status:  "success",

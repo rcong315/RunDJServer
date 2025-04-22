@@ -44,20 +44,22 @@ const (
 	InsertPlaylistQuery = `
 		INSERT INTO "playlist" (
 			playlist_id,
-			owner_id,
 			name,
 			description,
+			owner_id,
 			public,
+			followers,
 			image_urls
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (playlist_id) DO UPDATE
 		SET
-			owner_id = $2,
-			name = $3,
-			description = $4,
-			public = $5,
-			image_urls = $6
+			name = EXCLUDED.name,
+			description = EXCLUDED.description,
+			owner_id = EXCLUDED.owner_id,
+			public = EXCLUDED.public,
+			followers = EXCLUDED.followers,
+			image_urls = EXCLUDED.image_urls
 	`
 
 	InsertArtistQuery = `
@@ -117,20 +119,25 @@ const (
 		INSERT INTO "user_playlist_relation" (user_id, playlist_id, sources)
 		VALUES ($1, $2, $3) ON CONFLICT (user_id, playlist_id) DO
 		UPDATE
-		SET sources = array_cat(user_playlist_relation.sources, EXCLUDED.sources
+		SET sources = array_cat(user_playlist_relation.sources, EXCLUDED.sources)
 	`
 
 	InsertUserArtistRelationQuery = `
 		INSERT INTO "user_artist_relation" (user_id, artist_id, sources)
 		VALUES ($1, $2, $3) ON CONFLICT (user_id, artist_id) DO
 		UPDATE
-		SET sources = array_cat(user_artist_relation.sources, EXCLUDED.sources
+		SET sources = array_cat(user_artist_relation.sources, EXCLUDED.sources)
 	`
 
 	InsertUserAlbumRelationQuery = `
 		INSERT INTO "user_album_relation" (user_id, album_id, sources)
 		VALUES ($1, $2, $3) ON CONFLICT (user_id, album_id) DO
 		UPDATE
-		SET sources = array_cat(user_album_relation.sources, EXCLUDED.sources
+		SET sources = array_cat(user_album_relation.sources, EXCLUDED.sources)
+	`
+
+	InsertTrackPlaylistRelationQuery = `
+		INSERT INTO "track_playlist_relation" (track_id, playlist_id)
+		VALUES ($1, $2) ON CONFLICT (track_id, playlist_id) DO NOTHING
 	`
 )

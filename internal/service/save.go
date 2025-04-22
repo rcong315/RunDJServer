@@ -21,8 +21,10 @@ func saveTracks(userId string, tracks []*spotify.Track, source string) {
 	log.Printf("Saving %d tracks for user %s from source %s", len(tracks), userId, source)
 	var trackData []*db.Track
 	for _, track := range tracks {
-		dbTrack := convertSpotifyTrackToDBTrack(userId, track)
-		trackData = append(trackData, dbTrack)
+		if track.Id != "" {
+			dbTrack := convertSpotifyTrackToDBTrack(track)
+			trackData = append(trackData, dbTrack)
+		}
 	}
 
 	err := db.SaveTracks(userId, trackData, source)
@@ -37,8 +39,10 @@ func savePlaylists(userId string, playlists []*spotify.Playlist, source string) 
 	log.Printf("Saving %d playlists for user %s from source %s", len(playlists), userId, source)
 	var playlistData []*db.Playlist
 	for _, playlist := range playlists {
-		dbPlaylist := convertSpotifyPlaylistToDBPlaylist(userId, playlist)
-		playlistData = append(playlistData, dbPlaylist)
+		if playlist.Id != "" {
+			dbPlaylist := convertSpotifyPlaylistToDBPlaylist(playlist)
+			playlistData = append(playlistData, dbPlaylist)
+		}
 	}
 
 	err := db.SavePlaylists(userId, playlistData, source)
@@ -53,8 +57,10 @@ func saveArtists(userId string, artists []*spotify.Artist, source string) {
 	log.Printf("Saving %d artists for user %s from source %s", len(artists), userId, source)
 	var artistData []*db.Artist
 	for _, artist := range artists {
-		dbArtist := convertSpotifyArtistToDBArtist(userId, artist)
-		artistData = append(artistData, dbArtist)
+		if artist.Id != "" {
+			dbArtist := convertSpotifyArtistToDBArtist(artist)
+			artistData = append(artistData, dbArtist)
+		}
 	}
 
 	err := db.SaveArtists(userId, artistData, source)
@@ -69,8 +75,10 @@ func saveAlbums(userId string, albums []*spotify.Album, source string) {
 	log.Printf("Saving %d albums for user %s from source %s", len(albums), userId, source)
 	var albumData []*db.Album
 	for _, album := range albums {
-		dbAlbum := convertSpotifyAlbumToDBAlbum(userId, album)
-		albumData = append(albumData, dbAlbum)
+		if album.Id != "" {
+			dbAlbum := convertSpotifyAlbumToDBAlbum(album)
+			albumData = append(albumData, dbAlbum)
+		}
 	}
 
 	err := db.SaveAlbums(userId, albumData, source)
@@ -91,7 +99,7 @@ func saveAllTracks(token string, userId string) {
 	if err != nil {
 		log.Printf("Error getting user's top tracks: %v", err)
 	}
-	go saveTracks(userId, usersTopTracks, "top tracks")
+	saveTracks(userId, usersTopTracks, "top tracks")
 
 	// User's saved tracks
 	log.Printf("Getting user's saved tracks")
@@ -99,7 +107,7 @@ func saveAllTracks(token string, userId string) {
 	if err != nil {
 		log.Printf("Error getting user's saved tracks: %v", err)
 	}
-	go saveTracks(userId, usersSavedTracks, "saved tracks")
+	saveTracks(userId, usersSavedTracks, "saved tracks")
 
 	// User's playlists
 	log.Printf("Getting tracks from user's playlists")
@@ -107,7 +115,7 @@ func saveAllTracks(token string, userId string) {
 	if err != nil {
 		log.Printf("Error getting user's playlists: %v", err)
 	}
-	go savePlaylists(userId, usersPlaylists, "playlists")
+	savePlaylists(userId, usersPlaylists, "playlists")
 	for _, playlist := range usersPlaylists {
 		playlistId := playlist.Id
 		log.Printf("Getting tracks from playlist: %s", playlistId)
@@ -115,7 +123,7 @@ func saveAllTracks(token string, userId string) {
 		if err != nil {
 			log.Printf("Error getting tracks from playlist %s: %v", playlistId, err)
 		}
-		go saveTracks(userId, playlistTracks, "playlist tracks")
+		saveTracks(userId, playlistTracks, "playlist tracks")
 		// TODO: Save track_playlist_relation
 	}
 
@@ -125,7 +133,7 @@ func saveAllTracks(token string, userId string) {
 	if err != nil {
 		log.Printf("Error getting user's top artists: %v", err)
 	}
-	go saveArtists(userId, usersTopArtists, "top artists")
+	saveArtists(userId, usersTopArtists, "top artists")
 	for _, artist := range usersTopArtists {
 		artistId := artist.Id
 		log.Printf("Getting tracks from top artist's top tracks: %s", artistId)
@@ -133,7 +141,7 @@ func saveAllTracks(token string, userId string) {
 		if err != nil {
 			log.Printf("Error getting top tracks for artist %s: %v", artistId, err)
 		}
-		go saveTracks(userId, artistTopTracks, "top artists top tracks")
+		saveTracks(userId, artistTopTracks, "top artists top tracks")
 
 		// Top artist's albums
 		log.Printf("Getting tracks from top artist's albums: %s", artistId)
@@ -141,7 +149,7 @@ func saveAllTracks(token string, userId string) {
 		if err != nil {
 			log.Printf("Error getting albums for artist %s: %v", artistId, err)
 		}
-		go saveAlbums(userId, artistAlbums, "top artists")
+		saveAlbums(userId, artistAlbums, "top artists")
 		for _, album := range artistAlbums {
 			albumId := album.Id
 			log.Printf("Getting tracks from album: %s", albumId)
@@ -149,7 +157,7 @@ func saveAllTracks(token string, userId string) {
 			if err != nil {
 				log.Printf("Error getting tracks from album %s: %v", albumId, err)
 			}
-			go saveTracks(userId, albumTracks, "top artist's albums")
+			saveTracks(userId, albumTracks, "top artist's albums")
 		}
 	}
 
@@ -159,7 +167,7 @@ func saveAllTracks(token string, userId string) {
 	if err != nil {
 		log.Printf("Error getting user's followed artists: %v", err)
 	}
-	go saveArtists(userId, usersFollowedArtists, "followed artists")
+	saveArtists(userId, usersFollowedArtists, "followed artists")
 	for _, artist := range usersFollowedArtists {
 		artistId := artist.Id
 		log.Printf("Getting tracks from followed artist's top tracks: %s", artistId)
@@ -167,7 +175,7 @@ func saveAllTracks(token string, userId string) {
 		if err != nil {
 			log.Printf("Error getting top tracks for artist %s: %v", artistId, err)
 		}
-		go saveTracks(userId, artistTopTracks, "followed artists top tracks")
+		saveTracks(userId, artistTopTracks, "followed artists top tracks")
 
 		// Followed artist's albums
 		log.Printf("Getting tracks from followed artist's albums: %s", artistId)
@@ -175,7 +183,7 @@ func saveAllTracks(token string, userId string) {
 		if err != nil {
 			log.Printf("Error getting albums for artist %s: %v", artistId, err)
 		}
-		go saveAlbums(userId, artistAlbums, "followed artists")
+		saveAlbums(userId, artistAlbums, "followed artists")
 		for _, album := range artistAlbums {
 			albumId := album.Id
 			log.Printf("Getting tracks from album: %s", albumId)
@@ -183,7 +191,7 @@ func saveAllTracks(token string, userId string) {
 			if err != nil {
 				log.Printf("Error getting tracks from album %s: %v", albumId, err)
 			}
-			go saveTracks(userId, albumTracks, "followed artist's albums")
+			saveTracks(userId, albumTracks, "followed artist's albums")
 		}
 	}
 
@@ -193,7 +201,7 @@ func saveAllTracks(token string, userId string) {
 	if err != nil {
 		log.Printf("Error getting user's saved albums: %v", err)
 	}
-	go saveAlbums(userId, usersSavedAlbums, "saved albums")
+	saveAlbums(userId, usersSavedAlbums, "saved albums")
 	for _, album := range usersSavedAlbums {
 		albumId := album.Id
 		log.Printf("Getting tracks from album: %s", albumId)
@@ -201,7 +209,7 @@ func saveAllTracks(token string, userId string) {
 		if err != nil {
 			log.Printf("Error getting tracks from album %s: %v", albumId, err)
 		}
-		go saveTracks(userId, albumTracks, "saved albums")
+		saveTracks(userId, albumTracks, "saved albums")
 	}
 
 }

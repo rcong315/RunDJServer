@@ -1,7 +1,5 @@
 package db
 
-import "time"
-
 type User struct {
 	UserId      string   `json:"user_id"`
 	Email       string   `json:"email"`
@@ -45,8 +43,8 @@ type Playlist struct {
 	Description string   `json:"description"`
 	OwnerId     string   `json:"owner_id"`
 	Public      bool     `json:"public"`
-	ImageURLs   []string `json:"image_urls"`
 	Followers   int      `json:"followers"`
+	ImageURLs   []string `json:"image_urls"`
 }
 
 type Artist struct {
@@ -59,16 +57,16 @@ type Artist struct {
 }
 
 type Album struct {
-	AlbumId          string    `json:"album_id"`
-	Name             string    `json:"name"`
-	ArtistIds        []string  `json:"artist_ids"`
-	Genres           []string  `json:"genres"`
-	Popularity       int       `json:"popularity"`
-	AlbumType        string    `json:"album_type"`
-	TotalTracks      int       `json:"total_tracks"`
-	ReleaseDate      time.Time `json:"release_date"`
-	AvailableMarkets []string  `json:"available_markets"`
-	ImageURLs        []string  `json:"image_urls"`
+	AlbumId          string   `json:"album_id"`
+	Name             string   `json:"name"`
+	ArtistIds        []string `json:"artist_ids"`
+	Genres           []string `json:"genres"`
+	Popularity       int      `json:"popularity"`
+	AlbumType        string   `json:"album_type"`
+	TotalTracks      int      `json:"total_tracks"`
+	ReleaseDate      string   `json:"release_date"`
+	AvailableMarkets []string `json:"available_markets"`
+	ImageURLs        []string `json:"image_urls"`
 }
 
 type UserTrackRelation struct {

@@ -45,7 +45,7 @@ func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 
 // TODO: Combine spotify and db types
 
-func convertSpotifyTrackToDBTrack(userId string, track *spotify.Track) *db.Track {
+func convertSpotifyTrackToDBTrack(track *spotify.Track) *db.Track {
 	artistIds := make([]string, len(track.Artists))
 	for i, artist := range track.Artists {
 		artistIds[i] = artist.Id
@@ -80,7 +80,7 @@ func convertSpotifyTrackToDBTrack(userId string, track *spotify.Track) *db.Track
 	return &dbTrack
 }
 
-func convertSpotifyPlaylistToDBPlaylist(userId string, playlist *spotify.Playlist) *db.Playlist {
+func convertSpotifyPlaylistToDBPlaylist(playlist *spotify.Playlist) *db.Playlist {
 	imageURLs := make([]string, len(playlist.Images))
 	for i, img := range playlist.Images {
 		imageURLs[i] = img.URL
@@ -97,7 +97,7 @@ func convertSpotifyPlaylistToDBPlaylist(userId string, playlist *spotify.Playlis
 	}
 }
 
-func convertSpotifyAlbumToDBAlbum(userId string, album *spotify.Album) *db.Album {
+func convertSpotifyAlbumToDBAlbum(album *spotify.Album) *db.Album {
 	artistIds := make([]string, len(album.Artists))
 	for i, artist := range album.Artists {
 		artistIds[i] = artist.Id
@@ -122,7 +122,7 @@ func convertSpotifyAlbumToDBAlbum(userId string, album *spotify.Album) *db.Album
 	}
 }
 
-func convertSpotifyArtistToDBArtist(userId string, artist *spotify.Artist) *db.Artist {
+func convertSpotifyArtistToDBArtist(artist *spotify.Artist) *db.Artist {
 	imageURLs := make([]string, len(artist.Images))
 	for i, img := range artist.Images {
 		imageURLs[i] = img.URL

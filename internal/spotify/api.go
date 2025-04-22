@@ -359,7 +359,8 @@ func GetArtistsAlbums(token, id string) ([]*Album, error) {
 }
 
 func GetAlbumsTracks(token, id string) ([]*Track, error) {
-	url := fmt.Sprintf("%s/albums/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, id, limitMax, 0)
+	albumTypes := "album,single"
+	url := fmt.Sprintf("%s/albums/%s/tracks?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, albumTypes, id, limitMax, 0)
 
 	responses, err := fetchAllResults[AlbumsTracksResponse](token, url)
 	if err != nil {
