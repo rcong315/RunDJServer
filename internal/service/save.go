@@ -83,6 +83,7 @@ func saveAlbums(userId string, albums []*spotify.Album, source string) {
 
 	err := db.SaveAlbums(userId, albumData, source)
 	if err != nil {
+		// TODO: Error saving albums: error saving albums: final batch execution error: error executing batch item 7: ERROR: invalid input syntax for type timestamp with time zone: "2012" (SQLSTATE 22007)
 		log.Printf("Error saving albums: %v", err)
 	} else {
 		log.Printf("Saved %d albums", len(albumData))
@@ -157,6 +158,11 @@ func saveAllTracks(token string, userId string) {
 			if err != nil {
 				log.Printf("Error getting tracks from album %s: %v", albumId, err)
 			}
+			for _, track := range albumTracks {
+				track.Album = &spotify.Album{
+					Id: albumId,
+				}
+			}
 			saveTracks(userId, albumTracks, "top artist's albums")
 		}
 	}
@@ -190,6 +196,11 @@ func saveAllTracks(token string, userId string) {
 			albumTracks, err := spotify.GetAlbumsTracks(token, albumId)
 			if err != nil {
 				log.Printf("Error getting tracks from album %s: %v", albumId, err)
+			}
+			for _, track := range albumTracks {
+				track.Album = &spotify.Album{
+					Id: albumId,
+				}
 			}
 			saveTracks(userId, albumTracks, "followed artist's albums")
 		}

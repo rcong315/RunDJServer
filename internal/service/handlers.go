@@ -80,10 +80,35 @@ func PresetPlaylistHandler(c *gin.Context) {
 
 func RecommendationsHandler(c *gin.Context) {
 	log.Printf("RecommendationsHandler called")
-	seedArtists := c.QueryArray("seed_artists")
-	seedGenres := c.QueryArray("seed_genres")
+	token := c.Query("access_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+		return
+	}
+
+	usersTopArtists, err := spotify.GetUsersTopArtists(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user's top artists: " + err.Error()})
+		return
+	}
+	if len(usersTopArtists) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No top artists found"})
+		return
+	}
+
+	numSeedArtists := 5
+	if len(usersTopArtists) < 5 {
+		numSeedArtists = len(usersTopArtists)
+	}
+
+	seedArtists := make([]string, numSeedArtists)
+	for i := range numSeedArtists {
+		seedArtists[i] = usersTopArtists[i].Id
+	}
+
+	var seedGenres []string
 	if len(seedArtists) == 0 && len(seedGenres) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing seed_artists or seed_genres"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing seeds"})
 		return
 	}
 
@@ -101,6 +126,7 @@ func RecommendationsHandler(c *gin.Context) {
 	minBPM := bpm - 2
 	maxBPM := bpm + 2
 
+	log.Printf("Getting recommendations with seed artists: %v, seed genres: %v, minBPM: %f, maxBPM: %f", seedArtists, seedGenres, minBPM, maxBPM)
 	tracks, err := spotify.GetRecommendations(seedArtists, seedGenres, minBPM, maxBPM)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting recommendations: " + err.Error()})

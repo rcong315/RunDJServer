@@ -193,10 +193,12 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 		}
 
 		for _, audioFeatures := range responses[0].AudioFeatures {
-			id := audioFeatures.Id
-			track := trackMap[id]
-			track.AudioFeatures = &audioFeatures
-			trackMap[id] = track
+			if audioFeatures.Id != "" {
+				id := audioFeatures.Id
+				track := trackMap[id]
+				track.AudioFeatures = &audioFeatures
+				trackMap[id] = track
+			}
 		}
 	}
 
@@ -341,7 +343,8 @@ func GetArtistsTopTracks(token string, artistId string) ([]*Track, error) {
 }
 
 func GetArtistsAlbums(token, id string) ([]*Album, error) {
-	url := fmt.Sprintf("%s/artists/%s/albums?limit=%d&offset=%d", spotifyAPIURL, id, limitMax, 0)
+	albumTypes := "album,single"
+	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, id, albumTypes, limitMax, 0)
 
 	responses, err := fetchAllResults[ArtistsAlbumsResponse](token, url)
 	if err != nil {
@@ -359,8 +362,7 @@ func GetArtistsAlbums(token, id string) ([]*Album, error) {
 }
 
 func GetAlbumsTracks(token, id string) ([]*Track, error) {
-	albumTypes := "album,single"
-	url := fmt.Sprintf("%s/albums/%s/tracks?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, albumTypes, id, limitMax, 0)
+	url := fmt.Sprintf("%s/albums/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, id, limitMax, 0)
 
 	responses, err := fetchAllResults[AlbumsTracksResponse](token, url)
 	if err != nil {

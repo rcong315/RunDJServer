@@ -51,16 +51,11 @@ func convertSpotifyTrackToDBTrack(track *spotify.Track) *db.Track {
 		artistIds[i] = artist.Id
 	}
 	audioFeatures := track.AudioFeatures
-
-	dbTrack := db.Track{
-		TrackId:          track.Id,
-		Name:             track.Name,
-		ArtistIds:        artistIds,
-		AlbumId:          track.Album.Id,
-		Popularity:       track.Popularity,
-		DurationMS:       track.DurationMS,
-		AvailableMarkets: track.AvailableMarkets,
-		AudioFeatures: &db.AudioFeatures{
+	var dbAudioFeatures *db.AudioFeatures
+	if track.AudioFeatures == nil {
+		dbAudioFeatures = &db.AudioFeatures{}
+	} else {
+		dbAudioFeatures = &db.AudioFeatures{
 			Danceability:      audioFeatures.Danceability,
 			Energy:            audioFeatures.Energy,
 			Key:               audioFeatures.Key,
@@ -74,7 +69,17 @@ func convertSpotifyTrackToDBTrack(track *spotify.Track) *db.Track {
 			Tempo:             audioFeatures.Tempo,
 			Duration:          audioFeatures.Duration,
 			TimeSignature:     audioFeatures.TimeSignature,
-		},
+		}
+	}
+	dbTrack := db.Track{
+		TrackId:          track.Id,
+		Name:             track.Name,
+		ArtistIds:        artistIds,
+		AlbumId:          track.Album.Id,
+		Popularity:       track.Popularity,
+		DurationMS:       track.DurationMS,
+		AvailableMarkets: track.AvailableMarkets,
+		AudioFeatures:    dbAudioFeatures,
 	}
 
 	return &dbTrack
