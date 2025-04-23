@@ -180,5 +180,5 @@ func MatchingTracksHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"tracks": tracks})
+	c.JSON(http.StatusOK, gin.H{"count": len(tracks), "user": userId, "min": min, "max": max, "tracks": tracks})
 }
