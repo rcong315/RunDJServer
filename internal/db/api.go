@@ -232,7 +232,29 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 	return nil
 }
 
-// TODO: Get tracks by BPM
-func GetTracksByBPM(userId string, min int, max int) ([]*Track, error) {
-	return nil, nil
+func GetTracksByBPM(userId string, min float64, max float64) ([]*Track, error) {
+	db, err := getDB()
+	if err != nil {
+		return nil, fmt.Errorf("database connection error: %v", err)
+	}
+
+	rows, err := db.Query(context.Background(), GetTracksByBPMQuery, userId, min, max)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tracks by BPM: %v", err)
+	}
+	defer rows.Close()
+
+	var tracks []*Track
+	for rows.Next() {
+		var track Track
+		err := rows.Scan(
+			&track.TrackId,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning track: %v", err)
+		}
+		tracks = append(tracks, &track)
+	}
+
+	return tracks, nil
 }

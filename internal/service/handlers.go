@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/rcong315/RunDJServer/internal/db"
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
@@ -141,39 +142,43 @@ func RecommendationsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, trackIds)
 }
 
-// func MatchingTracksHandler(c *gin.Context) {
-// 	log.Printf("MatchingTracksHandler called")
-// 	token := c.Query("access_token")
-// 	if token == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
-// 		return
-// 	}
-// 	user, err := spotify.GetUser(token)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
-// 		return
-// 	}
-// 	userId := user.Id
-// 	if userId == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
-// 		return
-// 	}
+func MatchingTracksHandler(c *gin.Context) {
+	log.Printf("MatchingTracksHandler called")
+	token := c.Query("access_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+		return
+	}
+	user, err := spotify.GetUser(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
+		return
+	}
+	userId := user.Id
+	if userId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
+		return
+	}
 
-// 	bpmStr := c.Query("bpm")
-// 	if bpmStr == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
-// 		return
-// 	}
-// 	bpm, err := strconv.ParseFloat(bpmStr, 64)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
-// 		return
-// 	}
-// 	roundedBPM := int(math.Round(float64(bpm)/5) * 5)
-// 	min := roundedBPM - 2
-// 	max := roundedBPM + 2
+	bpmStr := c.Param("bpm")
+	if bpmStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
+		return
+	}
+	bpm, err := strconv.ParseFloat(bpmStr, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
+		return
+	}
+	roundedBPM := math.Round(float64(bpm)/5) * 5
+	min := roundedBPM - 2.5
+	max := roundedBPM + 2.5
 
-// 	db.GetTracksByBPM(userId, min, max)
+	tracks, err := db.GetTracksByBPM(userId, min, max)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting tracks by BPM: " + err.Error()})
+		return
+	}
 
-// 	c.JSON(http.StatusOK, gin.H{"": []int{roundedBPM - 1, roundedBPM, roundedBPM + 1}})
-// }
+	c.JSON(http.StatusOK, gin.H{"tracks": tracks})
+}

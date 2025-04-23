@@ -140,4 +140,11 @@ const (
 		INSERT INTO "track_playlist_relation" (track_id, playlist_id)
 		VALUES ($1, $2) ON CONFLICT (track_id, playlist_id) DO NOTHING
 	`
+
+	GetTracksByBPMQuery = `
+		SELECT track_id FROM track
+		JOIN user_track_relation USING (track_id)
+		WHERE user_id = $1
+		AND(audio_features->>'tempo')::float BETWEEN $2 AND $3
+	`
 )
