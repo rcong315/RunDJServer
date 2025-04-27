@@ -9,13 +9,20 @@ import (
 
 // TODO: Update updated_at
 
+// TODO: Save backups to filesystem
+
 func SaveUser(user *User) error {
+	sqlQuery, err := getQueryString("insertUser")
+	if err != nil {
+		return fmt.Errorf("error getting query string: %v", err)
+	}
+
 	db, err := getDB()
 	if err != nil {
 		return fmt.Errorf("database connection error: %v", err)
 	}
 
-	_, err = db.Exec(context.Background(), InsertUserQuery,
+	_, err = db.Exec(context.Background(), sqlQuery,
 		user.UserId,
 		user.Email,
 		user.DisplayName,
@@ -38,7 +45,7 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 		return nil
 	}
 
-	err := batchAndSave(tracks, InsertTrackQuery, func(item any) []any {
+	err := batchAndSave(tracks, "insertTrack", func(item any) []any {
 		track := item.(*Track)
 
 		// Marshal AudioFeatures to JSON
@@ -66,6 +73,7 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 	if err != nil {
 		return fmt.Errorf("error saving tracks: %v", err)
 	}
+	log.Printf("Saved %d tracks for user %s", len(tracks), userId)
 
 	var userTrackRelations []UserTrackRelation
 	for _, track := range tracks {
@@ -77,7 +85,7 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 		userTrackRelations = append(userTrackRelations, userTrackRelation)
 	}
 	log.Printf("Saving %d user track relations for user %s", len(userTrackRelations), userId)
-	err = batchAndSave(userTrackRelations, InsertUserTrackRelationQuery, func(item any) []any {
+	err = batchAndSave(userTrackRelations, "insertUserTrackRelation", func(item any) []any {
 		userTrackRelation := item.(UserTrackRelation)
 		return []any{
 			userTrackRelation.UserId,
@@ -97,7 +105,7 @@ func SavePlaylists(userId string, playlists []*Playlist, source string) error {
 		return nil
 	}
 
-	err := batchAndSave(playlists, InsertPlaylistQuery, func(item any) []any {
+	err := batchAndSave(playlists, "insertPlaylist", func(item any) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			playlist.PlaylistId,
@@ -112,6 +120,7 @@ func SavePlaylists(userId string, playlists []*Playlist, source string) error {
 	if err != nil {
 		return fmt.Errorf("error saving playlists: %v", err)
 	}
+	log.Printf("Saved %d playlists for user %s", len(playlists), userId)
 
 	var userPlaylistRelations []UserPlaylistRelation
 	for _, playlist := range playlists {
@@ -123,7 +132,7 @@ func SavePlaylists(userId string, playlists []*Playlist, source string) error {
 		userPlaylistRelations = append(userPlaylistRelations, userPlaylistRelation)
 	}
 	log.Printf("Saving %d user playlist relations for user %s", len(userPlaylistRelations), userId)
-	err = batchAndSave(userPlaylistRelations, InsertUserPlaylistRelationQuery, func(item any) []any {
+	err = batchAndSave(userPlaylistRelations, "insertUserPlaylistRelation", func(item any) []any {
 		userPlaylistRelation := item.(UserPlaylistRelation)
 		return []any{
 			userPlaylistRelation.UserId,
@@ -143,7 +152,7 @@ func SaveArtists(userId string, artists []*Artist, source string) error {
 		return nil
 	}
 
-	err := batchAndSave(artists, InsertArtistQuery, func(item any) []any {
+	err := batchAndSave(artists, "insertArtist", func(item any) []any {
 		artist := item.(*Artist)
 		return []any{
 			artist.ArtistId,
@@ -157,6 +166,7 @@ func SaveArtists(userId string, artists []*Artist, source string) error {
 	if err != nil {
 		return fmt.Errorf("error saving artists: %v", err)
 	}
+	log.Printf("Saved %d artists for user %s", len(artists), userId)
 
 	var userArtistRelations []UserArtistRelation
 	for _, artist := range artists {
@@ -168,7 +178,7 @@ func SaveArtists(userId string, artists []*Artist, source string) error {
 		userArtistRelations = append(userArtistRelations, userArtistRelation)
 	}
 	log.Printf("Saving %d user artist relations for user %s", len(userArtistRelations), userId)
-	err = batchAndSave(userArtistRelations, InsertUserArtistRelationQuery, func(item any) []any {
+	err = batchAndSave(userArtistRelations, "insertUserArtistRelation", func(item any) []any {
 		userArtistRelation := item.(UserArtistRelation)
 		return []any{
 			userArtistRelation.UserId,
@@ -188,7 +198,7 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 		return nil
 	}
 
-	err := batchAndSave(albums, InsertAlbumQuery, func(item any) []any {
+	err := batchAndSave(albums, "insertAlbum", func(item any) []any {
 		album := item.(*Album)
 		return []any{
 			album.AlbumId,
@@ -206,6 +216,7 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 	if err != nil {
 		return fmt.Errorf("error saving albums: %v", err)
 	}
+	log.Printf("Saved %d albums for user %s", len(albums), userId)
 
 	var userAlbumRelations []UserAlbumRelation
 	for _, album := range albums {
@@ -217,7 +228,7 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 		userAlbumRelations = append(userAlbumRelations, userAlbumRelation)
 	}
 	log.Printf("Saving %d user album relations for user %s", len(userAlbumRelations), userId)
-	err = batchAndSave(userAlbumRelations, InsertUserAlbumRelationQuery, func(item any) []any {
+	err = batchAndSave(userAlbumRelations, "insertUserAlbumRelation", func(item any) []any {
 		userAlbumRelation := item.(UserAlbumRelation)
 		return []any{
 			userAlbumRelation.UserId,
@@ -238,7 +249,7 @@ func GetTracksByBPM(userId string, min float64, max float64) ([]*Track, error) {
 		return nil, fmt.Errorf("database connection error: %v", err)
 	}
 
-	rows, err := db.Query(context.Background(), GetTracksByBPMQuery, userId, min, max)
+	rows, err := db.Query(context.Background(), "selectTracksByBPM", userId, min, max)
 	if err != nil {
 		return nil, fmt.Errorf("error getting tracks by BPM: %v", err)
 	}

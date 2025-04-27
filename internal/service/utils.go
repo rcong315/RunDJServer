@@ -142,3 +142,17 @@ func convertSpotifyArtistToDBArtist(artist *spotify.Artist) *db.Artist {
 		ImageURLs:  imageURLs,
 	}
 }
+
+func removeDuplicateArtists(artists []*spotify.Artist) []*spotify.Artist {
+	encounteredIDs := make(map[string]struct{}) // Use the type of your ID field (e.g., string, int)
+	result := []*spotify.Artist{}               // Initialize the slice for unique items
+
+	for _, artist := range artists {
+		if _, seen := encounteredIDs[artist.Id]; !seen {
+			encounteredIDs[artist.Id] = struct{}{}
+			result = append(result, artist)
+		}
+	}
+
+	return result
+}

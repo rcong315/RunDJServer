@@ -1,123 +1,13 @@
 package spotify
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
-	"strconv"
 	"strings"
-	"time"
 )
-
-const spotifyAPIURL = "https://api.spotify.com/v1"
-const limitMax = 50
-const maxRetries = 3
 
 var retryLimits = []int{20, 10, 5}
 
 // TODO: decorator, check access token before every handler
-
-func fetchPaginatedItems[T any](token string, url string) (*T, error) {
-	// TODO: Manage rate limiting
-	var lastErr error
-	currentLimit := limitMax
-
-	for attempt := range maxRetries {
-		if attempt > 0 {
-			// Exponential backoff
-			waitTime := time.Duration(attempt*3) * time.Second
-			log.Printf("Retrying request (attempt %d) after %v", attempt+1, waitTime)
-			time.Sleep(waitTime)
-		}
-
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			log.Printf("Error creating request: %v", err)
-			lastErr = err
-			continue
-		}
-
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-		client := &http.Client{
-			Timeout: 30 * time.Second,
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("Error making GET request: %v", err)
-			lastErr = err
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close() // Close the body before processing errors
-
-			log.Printf("Error from Spotify server: %d for URL: %s", resp.StatusCode, url)
-
-			// Handle rate limiting
-			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := 60
-				if retryHeader := resp.Header.Get("Retry-After"); retryHeader != "" {
-					if seconds, err := strconv.Atoi(retryHeader); err == nil {
-						retryAfter = seconds
-					}
-				}
-				log.Printf("Rate limited, waiting %d seconds", retryAfter)
-				time.Sleep(time.Duration(retryAfter) * time.Second)
-				lastErr = fmt.Errorf("rate limited, retrying after %d seconds", retryAfter)
-				continue
-			} else if resp.StatusCode == http.StatusBadGateway {
-				// For 502 errors, try reducing the limit
-				if strings.Contains(url, "limit=") && currentLimit > 10 {
-					currentLimit = retryLimits[attempt]
-					log.Printf("Got a 502 error, reducing limit to %d", currentLimit)
-					url = modifyURLLimit(url, currentLimit)
-					lastErr = fmt.Errorf("reduced limit to %d after 502 error", currentLimit)
-					continue
-				}
-			} else if resp.StatusCode >= 500 {
-				// Other server errors might be temporary
-				lastErr = fmt.Errorf("server returned status code %d, may retry", resp.StatusCode)
-				continue
-			} else {
-				// Client errors (4xx) except 429 are likely not recoverable with retries
-				return nil, fmt.Errorf("server returned status code %d", resp.StatusCode)
-			}
-		} else {
-			// Success path
-			defer resp.Body.Close()
-			var result T
-			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				log.Printf("Error decoding response: %v", err)
-				lastErr = err
-				continue
-			}
-
-			return &result, nil
-		}
-	}
-
-	// If we get here, all retries failed
-	return nil, fmt.Errorf("all %d attempts failed, last error: %v", maxRetries, lastErr)
-}
-
-func fetchAllResults[T any](token string, initialURL string) ([]*T, error) {
-	var results []*T
-	url := initialURL
-	for {
-		response, err := fetchPaginatedItems[T](token, url)
-		if err != nil {
-			break
-		}
-		results = append(results, response)
-
-		url = getNextURL(response)
-		if url == "" {
-			break
-		}
-	}
-	return results, nil
-}
 
 func GetUser(token string) (*User, error) {
 	url := fmt.Sprintf("%s/me", spotifyAPIURL)
@@ -165,49 +55,6 @@ func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxT
 
 	// allTracks, err = getAudioFeatures(allTracks)
 	return allTracks, err
-}
-
-func getAudioFeatures(tracks []*Track) ([]*Track, error) {
-	token, err := getSecretToken()
-	if err != nil {
-		return nil, err
-	}
-
-	trackMap := make(map[string]*Track)
-	for _, track := range tracks {
-		trackMap[track.Id] = track
-	}
-
-	for i := 0; i < len(tracks); i += 100 { // Iterate in batches of 100
-		var ids []string
-		for j := i; j < i+100 && j < len(tracks); j++ {
-			ids = append(ids, tracks[j].Id)
-		}
-
-		url := fmt.Sprintf("%s/audio-features?ids=", spotifyAPIURL) + strings.Join(ids, ",")
-
-		responses, err := fetchAllResults[AudioFeaturesResponse](token, url)
-		if err != nil {
-			// TODO: Refetch token and retry
-			return nil, err
-		}
-
-		for _, audioFeatures := range responses[0].AudioFeatures {
-			if audioFeatures.Id != "" {
-				id := audioFeatures.Id
-				track := trackMap[id]
-				track.AudioFeatures = &audioFeatures
-				trackMap[id] = track
-			}
-		}
-	}
-
-	result := make([]*Track, 0, len(trackMap))
-	for _, track := range trackMap {
-		result = append(result, track)
-	}
-
-	return result, nil
 }
 
 // TODO: All get track functions do the same code with different url, create a helper function
@@ -268,25 +115,6 @@ func GetUsersPlaylists(token string) ([]*Playlist, error) {
 	return allPlaylists, nil
 }
 
-func GetPlaylistsTracks(token string, id string) ([]*Track, error) {
-	url := fmt.Sprintf("%s/playlists/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, id, limitMax, 0)
-
-	responses, err := fetchAllResults[PlaylistsTracksResponse](token, url)
-	if err != nil {
-		return nil, err
-	}
-
-	var allTracks []*Track
-	for _, response := range responses {
-		for i := range response.Items {
-			allTracks = append(allTracks, &response.Items[i].Track)
-		}
-	}
-
-	allTracks, err = getAudioFeatures(allTracks)
-	return allTracks, err
-}
-
 func GetUsersTopArtists(token string) ([]*Artist, error) {
 	url := fmt.Sprintf("%s/me/top/artists/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
@@ -323,8 +151,50 @@ func GetUsersFollowedArtists(token string) ([]*Artist, error) {
 	return allArtists, nil
 }
 
-func GetArtistsTopTracks(token string, artistId string) ([]*Track, error) {
-	url := fmt.Sprintf("%s/artists/%s/top-tracks", spotifyAPIURL, artistId)
+func GetUsersSavedAlbums(token string) ([]*Album, error) {
+	url := fmt.Sprintf("%s/me/albums?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	responses, err := fetchAllResults[UsersSavedAlbumsResponse](token, url)
+	if err != nil {
+		return nil, err
+	}
+
+	var allAlbums []*Album
+	for _, response := range responses {
+		for i := range response.Items {
+			allAlbums = append(allAlbums, &response.Items[i].Album)
+		}
+	}
+
+	return allAlbums, nil
+}
+
+func GetPlaylistsTracks(token string, id string) ([]*Track, error) {
+	url := fmt.Sprintf("%s/playlists/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, id, limitMax, 0)
+
+	responses, err := fetchAllResults[PlaylistsTracksResponse](token, url)
+	if err != nil {
+		return nil, err
+	}
+
+	var allTracks []*Track
+	for _, response := range responses {
+		for i := range response.Items {
+			allTracks = append(allTracks, &response.Items[i].Track)
+		}
+	}
+
+	allTracks, err = getAudioFeatures(allTracks)
+	return allTracks, err
+}
+
+func GetArtistsTopTracks(id string) ([]*Track, error) {
+	token, err := getSecretToken()
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/artists/%s/top-tracks", spotifyAPIURL, id)
 
 	responses, err := fetchAllResults[ArtistsTopTracksResponse](token, url)
 	if err != nil {
@@ -342,7 +212,12 @@ func GetArtistsTopTracks(token string, artistId string) ([]*Track, error) {
 	return allTracks, err
 }
 
-func GetArtistsAlbums(token, id string) ([]*Album, error) {
+func GetArtistsAlbums(id string) ([]*Album, error) {
+	token, err := getSecretToken()
+	if err != nil {
+		return nil, err
+	}
+
 	albumTypes := "album,single"
 	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, id, albumTypes, limitMax, 0)
 
@@ -361,7 +236,12 @@ func GetArtistsAlbums(token, id string) ([]*Album, error) {
 	return allAlbums, nil
 }
 
-func GetAlbumsTracks(token, id string) ([]*Track, error) {
+func GetAlbumsTracks(id string) ([]*Track, error) {
+	token, err := getSecretToken()
+	if err != nil {
+		return nil, err
+	}
+
 	url := fmt.Sprintf("%s/albums/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, id, limitMax, 0)
 
 	responses, err := fetchAllResults[AlbumsTracksResponse](token, url)
@@ -380,20 +260,45 @@ func GetAlbumsTracks(token, id string) ([]*Track, error) {
 	return allTracks, err
 }
 
-func GetUsersSavedAlbums(token string) ([]*Album, error) {
-	url := fmt.Sprintf("%s/me/albums?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
-
-	responses, err := fetchAllResults[UsersSavedAlbumsResponse](token, url)
+func getAudioFeatures(tracks []*Track) ([]*Track, error) {
+	token, err := getSecretToken()
 	if err != nil {
 		return nil, err
 	}
 
-	var allAlbums []*Album
-	for _, response := range responses {
-		for i := range response.Items {
-			allAlbums = append(allAlbums, &response.Items[i].Album)
+	trackMap := make(map[string]*Track)
+	for _, track := range tracks {
+		trackMap[track.Id] = track
+	}
+
+	for i := 0; i < len(tracks); i += 100 { // Iterate in batches of 100
+		var ids []string
+		for j := i; j < i+100 && j < len(tracks); j++ {
+			ids = append(ids, tracks[j].Id)
+		}
+
+		url := fmt.Sprintf("%s/audio-features?ids=", spotifyAPIURL) + strings.Join(ids, ",")
+
+		responses, err := fetchAllResults[AudioFeaturesResponse](token, url)
+		if err != nil {
+			// TODO: Refetch token and retry
+			return nil, err
+		}
+
+		for _, audioFeatures := range responses[0].AudioFeatures {
+			if audioFeatures.Id != "" {
+				id := audioFeatures.Id
+				track := trackMap[id]
+				track.AudioFeatures = &audioFeatures
+				trackMap[id] = track
+			}
 		}
 	}
 
-	return allAlbums, nil
+	result := make([]*Track, 0, len(trackMap))
+	for _, track := range trackMap {
+		result = append(result, track)
+	}
+
+	return result, nil
 }

@@ -2,8 +2,10 @@ package db
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"time"
@@ -18,6 +20,8 @@ var (
 	initError error
 )
 
+//go:embed sql/*.sql
+var sqlFiles embed.FS // Variable to hold embedded SQL files
 const BatchSize = 100
 
 func initDB() error {
@@ -85,60 +89,78 @@ func processBatchResults(br pgx.BatchResults, count int) error {
 	return br.Close()
 }
 
-func batchAndSave(items any, insertQuery string, paramConverter func(item any) []any) error {
+func batchAndSave(items any, queryFilename string, paramConverter func(item any) []any) error {
+	sqlQuery, err := getQueryString(queryFilename)
+	if err != nil {
+		return fmt.Errorf("failed to get SQL query string: %w", err)
+	}
+
 	db, err := getDB()
 	if err != nil {
-		return fmt.Errorf("database connection error: %v", err)
+		return fmt.Errorf("database connection error: %w", err)
 	}
 
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting transaction: %v", err)
+		return fmt.Errorf("error starting transaction: %w", err)
 	}
-	// Use Rollback with error checking (though often ignored in defer)
-	defer func() {
-		_ = tx.Rollback(ctx) // Ensure rollback is attempted on any exit path
-	}()
+	// Defer Rollback guarantees an attempt to roll back if Commit fails or panic occurs.
+	// pgx's Rollback handles cases where Commit already succeeded gracefully.
+	defer tx.Rollback(ctx)
 
 	slice := reflect.ValueOf(items)
 	if slice.Kind() != reflect.Slice {
-		return fmt.Errorf("items must be a slice") // No need to explicitly rollback here, defer handles it
+		// No explicit rollback needed, defer handles it.
+		return fmt.Errorf("items must be a slice, got %v", slice.Kind())
 	}
 
 	batch := &pgx.Batch{}
-	sliceLen := slice.Len() // Get length once
-	for i := range sliceLen {
+	sliceLen := slice.Len()
+	for i := 0; i < sliceLen; i++ { // Corrected loop iteration
 		item := slice.Index(i).Interface()
 		params := paramConverter(item)
-		batch.Queue(insertQuery, params...)
 
+		// Use the query read from the file
+		batch.Queue(sqlQuery, params...)
+
+		// Send batch if it reaches BatchSize
 		if batch.Len() >= BatchSize {
 			br := tx.SendBatch(ctx, batch)
-			// Pass the actual batch length to processBatchResults
-			if err := processBatchResults(br, batch.Len()); err != nil {
-				// Rollback already deferred, but error occurred during batch
-				return fmt.Errorf("batch execution error: %v", err)
-			}
-			// Reset batch for the next set
+			// Get the exact count sent before clearing the batch
+			sentCount := batch.Len()
+			// It's often safer to reset the batch *before* processing results
 			batch = &pgx.Batch{}
+			if err := processBatchResults(br, sentCount); err != nil {
+				// Rollback handled by defer
+				return fmt.Errorf("batch execution error (batch size %d): %w", sentCount, err)
+			}
 		}
 	}
 
-	// Process any remaining items
 	if batch.Len() > 0 {
 		br := tx.SendBatch(ctx, batch)
-		// Pass the actual batch length
-		if err := processBatchResults(br, batch.Len()); err != nil {
-			return fmt.Errorf("final batch execution error: %v", err)
+		sentCount := batch.Len()
+		if err := processBatchResults(br, sentCount); err != nil {
+			// Rollback handled by defer
+			return fmt.Errorf("final batch execution error (batch size %d): %w", sentCount, err)
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		// Commit failed, Rollback was already deferred but might also fail
-		return fmt.Errorf("transaction commit error: %v", err)
+		// Commit failed, deferred Rollback will attempt cleanup.
+		return fmt.Errorf("transaction commit error: %w", err)
 	}
 
-	// If Commit succeeds, the deferred Rollback will harmlessly return pgx.ErrTxCommitSuccess
+	// Commit succeeded. Deferred Rollback will return pgx.ErrTxCommitSuccess, which is ignored.
 	return nil
+}
+
+func getQueryString(queryFilename string) (string, error) {
+	sqlFilePathInEmbedFS := filepath.Join("sql", queryFilename+".sql") // Path *inside* the embed FS
+	sqlBytes, err := sqlFiles.ReadFile(sqlFilePathInEmbedFS)           // Read from the embed.FS variable
+	if err != nil {
+		return "", fmt.Errorf("failed to read embedded SQL file %q: %w", sqlFilePathInEmbedFS, err)
+	}
+	return string(sqlBytes), nil
 }
