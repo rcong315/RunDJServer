@@ -28,9 +28,12 @@ func main() {
 	router.POST("/api/spotify/auth/refresh", spotify.RefreshHandler)
 
 	router.GET("/api/user/register", service.RegisterHandler)
+
 	router.GET("/api/songs/preset", service.PresetPlaylistHandler)
 	router.GET("/api/songs/recommendations", service.RecommendationsHandler)
 	router.GET("/api/songs/bpm/:bpm", service.MatchingTracksHandler)
+
+	router.POST("/api/playlist/bpm/:bpm", service.CreatePlaylistHandler)
 
 	port := os.Getenv("PORT")
 	log.Printf("Server starting on port %s\n", port)

@@ -158,6 +158,10 @@ type AudioFeaturesResponse struct {
 	AudioFeatures []AudioFeatures `json:"audio_features"`
 }
 
+type PlaylistResponse struct {
+	Id string `json:"id"`
+}
+
 type WhoAmIResponse struct {
 	Id string `json:"id"`
 }

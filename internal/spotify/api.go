@@ -1,8 +1,14 @@
 package spotify
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"math"
+	"net/http"
 	"strings"
+	"time"
 )
 
 var retryLimits = []int{20, 10, 5}
@@ -301,4 +307,98 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	}
 
 	return result, nil
+}
+
+func CreatePlaylist(token string, userId string, bpm float64, min float64, max float64, tracks []string) error {
+	// TODO: Check if playlist already exists
+
+	name := fmt.Sprintf("RunDJ %d BPM", int(math.Round(bpm)))
+	description := fmt.Sprintf("This playlist was created by RunDJ. All songs in this playlist have a BPM range of %f-%f", min, max)
+	public := false
+
+	url := fmt.Sprintf("%s/users/%s/playlists", spotifyAPIURL, userId)
+
+	postData := map[string]any{
+		"name":        name,
+		"description": description,
+		"public":      public,
+	}
+	jsonData, err := json.Marshal(postData)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	bodyString := string(bodyBytes)
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to create playlist: %s", resp.Status)
+	}
+
+	var playlistResponse PlaylistResponse
+	err = json.Unmarshal(bodyBytes, &playlistResponse)
+	if err != nil {
+		return err
+	}
+	playlistId := playlistResponse.Id
+	if playlistId == "" {
+		return fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
+	}
+
+	for i := 0; i < len(tracks); i += 100 {
+		var ids []string
+		for j := i; j < i+100 && j < len(tracks); j++ {
+			ids = append(ids, "spotify:track:"+tracks[j])
+		}
+
+		url := fmt.Sprintf("%s/playlists/%s/tracks", spotifyAPIURL, playlistId)
+
+		jsonData, err := json.Marshal(map[string]any{
+			"uris": ids,
+		})
+		if err != nil {
+			return err
+		}
+
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return err
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != http.StatusCreated {
+			return fmt.Errorf("failed to add tracks to playlist: %s", resp.Status)
+		}
+	}
+
+	return nil
 }
