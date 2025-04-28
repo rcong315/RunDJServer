@@ -260,6 +260,8 @@ func GetTracksByBPM(userId string, min float64, max float64) ([]string, error) {
 		tracks = append(tracks, track)
 	}
 
+	// TODO: Shuffle tracks
+
 	log.Printf("Found %d tracks for user %s with BPM between %f and %f", len(tracks), userId, min, max)
 	return tracks, nil
 }

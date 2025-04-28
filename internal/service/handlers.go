@@ -2,6 +2,7 @@ package service
 
 import (
 	//TODO: improve logging, different library, log userid automatically?
+
 	"log"
 	"math"
 	"net/http"
@@ -41,7 +42,9 @@ func RegisterHandler(c *gin.Context) {
 
 	user, err := spotify.GetUser(token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting user: " + err.Error(),
+		})
 		return
 	}
 	saveUser(user)
@@ -89,7 +92,9 @@ func RecommendationsHandler(c *gin.Context) {
 
 	usersTopArtists, err := spotify.GetUsersTopArtists(token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user's top artists: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting user's top artists: " + err.Error(),
+		})
 		return
 	}
 	if len(usersTopArtists) == 0 {
@@ -130,7 +135,9 @@ func RecommendationsHandler(c *gin.Context) {
 	log.Printf("Getting recommendations with seed artists: %v, seed genres: %v, minBPM: %f, maxBPM: %f", seedArtists, seedGenres, minBPM, maxBPM)
 	tracks, err := spotify.GetRecommendations(seedArtists, seedGenres, minBPM, maxBPM)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting recommendations: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting recommendations: " + err.Error(),
+		})
 		return
 	}
 
@@ -151,7 +158,9 @@ func MatchingTracksHandler(c *gin.Context) {
 	}
 	user, err := spotify.GetUser(token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting user: " + err.Error(),
+		})
 		return
 	}
 	userId := user.Id
@@ -170,15 +179,81 @@ func MatchingTracksHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
 		return
 	}
-	roundedBPM := math.Round(float64(bpm)/5) * 5
-	min := roundedBPM - 1.5
-	max := roundedBPM + 1.5
+
+	min := bpm - 1.5
+	max := bpm + 1.5
 
 	tracks, err := db.GetTracksByBPM(userId, min, max)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting tracks by BPM: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting tracks by BPM: " + err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"count": len(tracks), "user": userId, "min": min, "max": max, "tracks": tracks})
+	c.JSON(http.StatusOK, gin.H{
+		"count":  len(tracks),
+		"user":   userId,
+		"min":    min,
+		"max":    max,
+		"tracks": tracks,
+	})
+}
+
+func CreatePlaylistHandler(c *gin.Context) {
+	log.Printf("CreatePlaylistHandler called")
+	token := c.Query("access_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+		return
+	}
+
+	user, err := spotify.GetUser(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting user: " + err.Error(),
+		})
+		return
+	}
+	userId := user.Id
+	if userId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
+		return
+	}
+
+	bpmStr := c.Param("bpm")
+	if bpmStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
+		return
+	}
+	bpm, err := strconv.ParseFloat(bpmStr, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
+		return
+	}
+
+	min := bpm - 1.5
+	max := bpm + 1.5
+
+	tracks, err := db.GetTracksByBPM(userId, min, max)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting tracks by BPM: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("Creating playlist for user %s for the bpm range %f-%f with %d songs", userId, min, max, len(tracks))
+	err = spotify.CreatePlaylist(token, userId, bpm, min, max, tracks)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error creating playlist: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, Message{
+		Status:  "success",
+		Message: "Playlist created successfully",
+	})
 }
