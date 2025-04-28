@@ -171,8 +171,8 @@ func MatchingTracksHandler(c *gin.Context) {
 		return
 	}
 	roundedBPM := math.Round(float64(bpm)/5) * 5
-	min := roundedBPM - 2.5
-	max := roundedBPM + 2.5
+	min := roundedBPM - 1.5
+	max := roundedBPM + 1.5
 
 	tracks, err := db.GetTracksByBPM(userId, min, max)
 	if err != nil {
