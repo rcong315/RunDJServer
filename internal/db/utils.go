@@ -156,6 +156,25 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 	return nil
 }
 
+func executeSelect(queryFilename string, args ...any) (pgx.Rows, error) {
+	sqlQuery, err := getQueryString(queryFilename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SQL query string: %w", err)
+	}
+
+	db, err := getDB()
+	if err != nil {
+		return nil, fmt.Errorf("database connection error: %w", err)
+	}
+
+	ctx := context.Background()
+	rows, err := db.Query(ctx, sqlQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %w", err)
+	}
+	return rows, nil
+}
+
 func getQueryString(queryFilename string) (string, error) {
 	sqlFilePathInEmbedFS := filepath.Join("sql", queryFilename+".sql") // Path *inside* the embed FS
 	sqlBytes, err := sqlFiles.ReadFile(sqlFilePathInEmbedFS)           // Read from the embed.FS variable

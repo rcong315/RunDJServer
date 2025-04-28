@@ -244,14 +244,9 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 }
 
 func GetTracksByBPM(userId string, min float64, max float64) ([]*Track, error) {
-	db, err := getDB()
+	rows, err := executeSelect("selectTracksByBPM", userId, min, max)
 	if err != nil {
-		return nil, fmt.Errorf("database connection error: %v", err)
-	}
-
-	rows, err := db.Query(context.Background(), "selectTracksByBPM", userId, min, max)
-	if err != nil {
-		return nil, fmt.Errorf("error getting tracks by BPM: %v", err)
+		return nil, fmt.Errorf("error executing query: %v", err)
 	}
 	defer rows.Close()
 
@@ -267,5 +262,6 @@ func GetTracksByBPM(userId string, min float64, max float64) ([]*Track, error) {
 		tracks = append(tracks, &track)
 	}
 
+	log.Printf("Found %d tracks for user %s with BPM between %f and %f", len(tracks), userId, min, max)
 	return tracks, nil
 }
