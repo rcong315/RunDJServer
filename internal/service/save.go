@@ -10,11 +10,11 @@ func saveUser(user spotify.User) error {
 	return db.SaveUser(dbUser)
 }
 
-func saveTracks(userId string, tracks []spotify.Track) error {
+func saveTracks(userId string, tracks []spotify.Track, source string) error {
 	var trackData []db.Track
 	for _, track := range tracks {
 		dbTrack := convertSpotifyTrackToDBTrack(userId, track)
 		trackData = append(trackData, dbTrack)
 	}
-	return db.SaveTracks(userId, trackData)
+	return db.SaveTracks(userId, trackData, source)
 }

@@ -49,10 +49,8 @@ func convertSpotifyTrackToDBTrack(userId string, track spotify.Track) db.Track {
 		artistIds[i] = artist.Id
 	}
 
-	// Create db.Track object
 	dbTrack := db.Track{
 		TrackId:          track.Id,
-		UserIds:          []string{userId},
 		Name:             track.Name,
 		ArtistIds:        artistIds,
 		AlbumId:          track.Album.Id,
