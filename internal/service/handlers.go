@@ -2,7 +2,6 @@ package service
 
 import (
 	//TODO: improve logging, different library, log userid automatically?
-
 	"log"
 	"math"
 	"net/http"
