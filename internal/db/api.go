@@ -243,23 +243,21 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 	return nil
 }
 
-func GetTracksByBPM(userId string, min float64, max float64) ([]*Track, error) {
+func GetTracksByBPM(userId string, min float64, max float64) ([]string, error) {
 	rows, err := executeSelect("selectTracksByBPM", userId, min, max)
 	if err != nil {
 		return nil, fmt.Errorf("error executing query: %v", err)
 	}
 	defer rows.Close()
 
-	var tracks []*Track
+	var tracks []string
 	for rows.Next() {
-		var track Track
-		err := rows.Scan(
-			&track.TrackId,
-		)
+		var track string
+		err := rows.Scan(&track)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning track: %v", err)
 		}
-		tracks = append(tracks, &track)
+		tracks = append(tracks, track)
 	}
 
 	log.Printf("Found %d tracks for user %s with BPM between %f and %f", len(tracks), userId, min, max)
