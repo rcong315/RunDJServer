@@ -25,15 +25,35 @@ type AudioFeatures struct {
 	Duration          int     `json:"duration_ms"`
 	TimeSignature     int     `json:"time_signature"`
 }
+
 type Track struct {
-	TrackId          string        `json:"track_id"`
-	Name             string        `json:"name"`
-	ArtistIds        []string      `json:"artist_ids"`
-	AlbumId          string        `json:"album_id"`
-	Popularity       int           `json:"popularity"`
-	DurationMS       int           `json:"duration_ms"`
-	AvailableMarkets []string      `json:"available_markets"`
-	AudioFeatures    AudioFeatures `json:"audio_features"`
+	TrackId          string         `json:"track_id"`
+	Name             string         `json:"name"`
+	ArtistIds        []string       `json:"artist_ids"`
+	AlbumId          string         `json:"album_id"`
+	Popularity       int            `json:"popularity"`
+	DurationMS       int            `json:"duration_ms"`
+	AvailableMarkets []string       `json:"available_markets"`
+	AudioFeatures    *AudioFeatures `json:"audio_features"`
+}
+
+type Playlist struct {
+	PlaylistId  string   `json:"playlist_id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	OwnerId     string   `json:"owner_id"`
+	Public      bool     `json:"public"`
+	Followers   int      `json:"followers"`
+	ImageURLs   []string `json:"image_urls"`
+}
+
+type Artist struct {
+	ArtistId   string   `json:"artist_id"`
+	Name       string   `json:"name"`
+	Genres     []string `json:"genres"`
+	Popularity int      `json:"popularity"`
+	Followers  int      `json:"followers"`
+	ImageURLs  []string `json:"image_urls"`
 }
 
 type Album struct {
@@ -49,41 +69,10 @@ type Album struct {
 	ImageURLs        []string `json:"image_urls"`
 }
 
-type Artist struct {
-	ArtistId   string   `json:"artist_id"`
-	Name       string   `json:"name"`
-	Genres     []string `json:"genres"`
-	Popularity int      `json:"popularity"`
-	Followers  int      `json:"followers"`
-	ImageURLs  []string `json:"image_urls"`
-}
-
-type Playlist struct {
-	PlaylistId  string   `json:"playlist_id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	OwnerId     string   `json:"owner_id"`
-	Public      bool     `json:"public"`
-	ImageURLs   []string `json:"image_urls"`
-	Followers   int      `json:"followers"`
-}
-
 type UserTrackRelation struct {
 	UserId  string   `json:"user_id"`
 	TrackId string   `json:"track_id"`
 	Sources []string `json:"sources"`
-}
-
-type UserAlbumRelation struct {
-	UserId  string   `json:"user_id"`
-	AlbumId string   `json:"album_id"`
-	Sources []string `json:"sources"`
-}
-
-type UserArtistRelation struct {
-	UserId   string   `json:"user_id"`
-	ArtistId string   `json:"artist_id"`
-	Sources  []string `json:"sources"`
 }
 
 type UserPlaylistRelation struct {
@@ -92,14 +81,16 @@ type UserPlaylistRelation struct {
 	Sources    []string `json:"sources"`
 }
 
-type TrackAlbumRelation struct {
-	TrackId string `json:"track_id"`
-	AlbumId string `json:"album_id"`
+type UserArtistRelation struct {
+	UserId   string   `json:"user_id"`
+	ArtistId string   `json:"artist_id"`
+	Sources  []string `json:"sources"`
 }
 
-type TrackArtistRelation struct {
-	TrackId  string `json:"track_id"`
-	ArtistId string `json:"artist_id"`
+type UserAlbumRelation struct {
+	UserId  string   `json:"user_id"`
+	AlbumId string   `json:"album_id"`
+	Sources []string `json:"sources"`
 }
 
 type TrackPlaylistRelation struct {

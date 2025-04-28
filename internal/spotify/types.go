@@ -12,43 +12,28 @@ type User struct {
 	ImageURLs []Image `json:"images"`
 }
 
-type AudioFeaturesResponse struct {
-	Danceability      float64 `json:"danceability"`
-	Energy            float64 `json:"energy"`
-	Key               int     `json:"key"`
-	Loudness          float64 `json:"loudness"`
-	Mode              int     `json:"mode"`
-	Speechiness       float64 `json:"speechiness"`
-	Acousticness      float64 `json:"acousticness"`
-	Instrumentallness float64 `json:"instrumentallness"`
-	Liveness          float64 `json:"liveness"`
-	Valence           float64 `json:"valence"`
-	Tempo             float64 `json:"tempo"`
-	Duration          int     `json:"duration_ms"`
-	TimeSignature     int     `json:"time_signature"`
-}
-
 type Track struct {
-	Id               string   `json:"id"`
-	Name             string   `json:"name"`
-	Album            Album    `json:"album"`
-	Artists          []Artist `json:"artists"`
-	Popularity       int      `json:"popularity"`
-	DurationMS       int      `json:"duration_ms"`
-	AvailableMarkets []string `json:"available_markets"`
+	Id               string         `json:"id"`
+	Name             string         `json:"name"`
+	Album            *Album         `json:"album"`
+	Artists          []*Artist      `json:"artists"`
+	Popularity       int            `json:"popularity"`
+	DurationMS       int            `json:"duration_ms"`
+	AvailableMarkets []string       `json:"available_markets"`
+	AudioFeatures    *AudioFeatures `json:"audio_features"`
 }
 
 type Album struct {
-	Id               string   `json:"id"`
-	Name             string   `json:"name"`
-	Artists          []Artist `json:"artists"`
-	Genres           []string `json:"genres"`
-	Popularity       int      `json:"popularity"`
-	AlbumType        string   `json:"album_type"`
-	TotalTracks      int      `json:"total_tracks"`
-	ReleaseDate      string   `json:"release_date"`
-	AvailableMarkets []string `json:"available_markets"`
-	Images           []Image  `json:"images"`
+	Id               string    `json:"id"`
+	Name             string    `json:"name"`
+	Artists          []*Artist `json:"artists"`
+	Genres           []string  `json:"genres"`
+	Popularity       int       `json:"popularity"`
+	AlbumType        string    `json:"album_type"`
+	TotalTracks      int       `json:"total_tracks"`
+	ReleaseDate      string    `json:"release_date"`
+	AvailableMarkets []string  `json:"available_markets"`
+	Images           []Image   `json:"images"`
 }
 
 type Artist struct {
@@ -77,8 +62,37 @@ type Playlist struct {
 	Images []Image `json:"images"`
 }
 
+type AudioFeatures struct {
+	Id                string  `json:"id"`
+	Danceability      float64 `json:"danceability"`
+	Energy            float64 `json:"energy"`
+	Key               int     `json:"key"`
+	Loudness          float64 `json:"loudness"`
+	Mode              int     `json:"mode"`
+	Speechiness       float64 `json:"speechiness"`
+	Acousticness      float64 `json:"acousticness"`
+	Instrumentallness float64 `json:"instrumentallness"`
+	Liveness          float64 `json:"liveness"`
+	Valence           float64 `json:"valence"`
+	Tempo             float64 `json:"tempo"`
+	Duration          int     `json:"duration_ms"`
+	TimeSignature     int     `json:"time_signature"`
+}
+
 type Image struct {
 	URL string `json:"url"`
+}
+
+type RecommendationsResponse struct {
+	Seeds []struct {
+		InitialPoolSize     int    `json:"initialPoolSize"`
+		AfterFilteringSize  int    `json:"afterFilteringSize"`
+		AlfterRelinkingSize int    `json:"afterRelinkingSize"`
+		Id                  string `json:"id"`
+		Type                string `json:"type"`
+		Href                string `json:"href"`
+	} `json:"seeds"`
+	Tracks []Track `json:"tracks"`
 }
 
 type UsersSavedTrackItem struct {
@@ -117,7 +131,7 @@ type UsersFollowedArtistsResponse struct {
 	} `json:"artists"`
 }
 
-type ArtistsTopTrackResponse struct {
+type ArtistsTopTracksResponse struct {
 	Tracks []Track `json:"tracks"`
 }
 
@@ -126,13 +140,30 @@ type ArtistsAlbumsResponse struct {
 	Next  string  `json:"next"`
 }
 
+type SavedAlbum struct {
+	Album Album `json:"album"`
+}
+
+type UsersSavedAlbumsResponse struct {
+	Items []SavedAlbum `json:"items"`
+	Next  string       `json:"next"`
+}
+
 type AlbumsTracksResponse struct {
 	Items []Track `json:"items"`
 	Next  string  `json:"next"`
 }
 
+type AudioFeaturesResponse struct {
+	AudioFeatures []AudioFeatures `json:"audio_features"`
+}
+
+type WhoAmIResponse struct {
+	Id string `json:"id"`
+}
+
 type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
+	Token        string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token,omitempty"`

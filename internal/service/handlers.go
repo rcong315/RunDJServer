@@ -1,8 +1,7 @@
 package service
 
 import (
-	"encoding/json"
-	"fmt"
+	//TODO: improve logging, different library, log userid automatically?
 	"log"
 	"math"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/rcong315/RunDJServer/internal/db"
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
@@ -21,68 +21,32 @@ type Message struct {
 }
 
 func HomeHandler(c *gin.Context) {
+	log.Printf("HomeHandler called")
 	c.String(http.StatusOK, "RunDJ Backend")
 }
 
 func ThanksHandler(c *gin.Context) {
+	log.Printf("ThanksHandler called")
 	c.Header("Content-Type", "text/html")
 	c.String(http.StatusOK, "<html><body><a href=\"https://getsongbpm.com\">getsongbpm.com</a></body></html>")
 }
 
 func RegisterHandler(c *gin.Context) {
-	accessToken := c.Query("access_token")
-	if accessToken == "" {
+	log.Printf("RegisterHandler called")
+	token := c.Query("access_token")
+	if token == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
 		return
 	}
 
-	apiURL := fmt.Sprintf("%s/me", spotifyAPIURL)
-	req, err := http.NewRequest("GET", apiURL, nil)
+	user, err := spotify.GetUser(token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
 		return
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	saveUser(user)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error making GET request"})
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		c.JSON(resp.StatusCode, gin.H{"error": "Error from Spotify server"})
-		return
-	}
-
-	var user spotify.User
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding response"})
-		return
-	}
-
-	err = saveUser(user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving user"})
-		return
-	}
-	log.Printf("Created new user: Id=%s, Email=%s, DisplayName=%s\n",
-		user.Id, user.Email, user.DisplayName)
-
-	go func(accessToken, userId string) {
-		log.Printf("Getting all tracks for user %s\n", userId)
-		tracks, _ := spotify.GetUsersTopTracks(accessToken)
-		err = saveTracks(userId, tracks, "top tracks")
-		if err != nil {
-			log.Printf("Error saving tracks: %v", err)
-		}
-		// log.Printf("Finished getting %d tracks for user %s\n", len(ids), userI)
-		// log.Print("Getting and saving song BPMs, this might take a while...\n")
-		// bpm.SaveBPMs(userId, ids)
-		// log.Printf("Finished saving BPMs for user %s\n", userId)
-	}(accessToken, user.Id)
+	processAll(token, user.Id)
 
 	c.JSON(http.StatusOK, Message{
 		Status:  "success",
@@ -91,6 +55,7 @@ func RegisterHandler(c *gin.Context) {
 }
 
 func PresetPlaylistHandler(c *gin.Context) {
+	log.Printf("PresetPlaylistHandler called")
 	bpmStr := c.Query("bpm")
 	if bpmStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
@@ -99,7 +64,7 @@ func PresetPlaylistHandler(c *gin.Context) {
 
 	bpm, err := strconv.ParseFloat(bpmStr, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
 		return
 	}
 
@@ -112,4 +77,108 @@ func PresetPlaylistHandler(c *gin.Context) {
 	}
 
 	c.String(http.StatusOK, playlistId)
+}
+
+func RecommendationsHandler(c *gin.Context) {
+	log.Printf("RecommendationsHandler called")
+	token := c.Query("access_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+		return
+	}
+
+	usersTopArtists, err := spotify.GetUsersTopArtists(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user's top artists: " + err.Error()})
+		return
+	}
+	if len(usersTopArtists) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No top artists found"})
+		return
+	}
+
+	numSeedArtists := 5
+	if len(usersTopArtists) < 5 {
+		numSeedArtists = len(usersTopArtists)
+	}
+
+	seedArtists := make([]string, numSeedArtists)
+	for i := range numSeedArtists {
+		seedArtists[i] = usersTopArtists[i].Id
+	}
+
+	var seedGenres []string
+	if len(seedArtists) == 0 && len(seedGenres) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing seeds"})
+		return
+	}
+
+	bpmStr := c.Query("bpm")
+	if bpmStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
+		return
+	}
+	bpm, err := strconv.ParseFloat(bpmStr, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
+		return
+	}
+
+	minBPM := bpm - 2
+	maxBPM := bpm + 2
+
+	log.Printf("Getting recommendations with seed artists: %v, seed genres: %v, minBPM: %f, maxBPM: %f", seedArtists, seedGenres, minBPM, maxBPM)
+	tracks, err := spotify.GetRecommendations(seedArtists, seedGenres, minBPM, maxBPM)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting recommendations: " + err.Error()})
+		return
+	}
+
+	trackIds := make([]string, len(tracks))
+	for i, track := range tracks {
+		trackIds[i] = track.Id
+	}
+
+	c.JSON(http.StatusOK, trackIds)
+}
+
+func MatchingTracksHandler(c *gin.Context) {
+	log.Printf("MatchingTracksHandler called")
+	token := c.Query("access_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+		return
+	}
+	user, err := spotify.GetUser(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting user: " + err.Error()})
+		return
+	}
+	userId := user.Id
+	if userId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
+		return
+	}
+
+	bpmStr := c.Param("bpm")
+	if bpmStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
+		return
+	}
+	bpm, err := strconv.ParseFloat(bpmStr, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
+		return
+	}
+	roundedBPM := math.Round(float64(bpm)/5) * 5
+	min := roundedBPM - 1.5
+	max := roundedBPM + 1.5
+
+	tracks, err := db.GetTracksByBPM(userId, min, max)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting tracks by BPM: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": len(tracks), "user": userId, "min": min, "max": max, "tracks": tracks})
 }
