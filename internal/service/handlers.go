@@ -243,16 +243,13 @@ func CreatePlaylistHandler(c *gin.Context) {
 	}
 
 	log.Printf("Creating playlist for user %s for the bpm range %f-%f with %d songs", userId, min, max, len(tracks))
-	err = spotify.CreatePlaylist(token, userId, bpm, min, max, tracks)
-	if err != nil {
+	playlist, err := spotify.CreatePlaylist(token, userId, bpm, min, max, tracks)
+	if err != nil && playlist.Id == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Error creating playlist: " + err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, Message{
-		Status:  "success",
-		Message: "Playlist created successfully",
-	})
+	c.JSON(http.StatusOK, playlist)
 }

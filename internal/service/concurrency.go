@@ -241,7 +241,7 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 			log.Printf("Submitting job for %d top tracks from artist %s", len(tracksToProcess), j.ArtistID)
 			pool.Submit(&ProcessDataJob{
 				UserID:    j.UserID,
-				Source:    fmt.Sprintf("%s:%s", "artist's top tracks", j.ArtistID),
+				Source:    "artist's top tracks",
 				DataType:  "tracks",
 				Items:     tracksToProcess,
 				ProcessFn: processTracks,
@@ -272,7 +272,7 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 			log.Printf("Submitting job for %d albums metadata from artist %s", len(albumsToProcess), j.ArtistID)
 			pool.Submit(&ProcessDataJob{
 				UserID:    j.UserID,
-				Source:    fmt.Sprintf("%s:%s", "artist's album", j.ArtistID),
+				Source:    "artist's album", //TODO: differentiate between album and single
 				DataType:  "albums",
 				Items:     albumsToProcess,
 				ProcessFn: processAlbums,

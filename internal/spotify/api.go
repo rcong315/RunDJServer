@@ -309,7 +309,7 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	return result, nil
 }
 
-func CreatePlaylist(token string, userId string, bpm float64, min float64, max float64, tracks []string) error {
+func CreatePlaylist(token string, userId string, bpm float64, min float64, max float64, tracks []string) (*Playlist, error) {
 	// TODO: Check if playlist already exists
 
 	name := fmt.Sprintf("RunDJ %d BPM", int(math.Round(bpm)))
@@ -325,12 +325,12 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 	}
 	jsonData, err := json.Marshal(postData)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -341,28 +341,28 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	bodyString := string(bodyBytes)
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("failed to create playlist: %s", resp.Status)
+		return nil, fmt.Errorf("failed to create playlist: %s", resp.Status)
 	}
 
-	var playlistResponse PlaylistResponse
-	err = json.Unmarshal(bodyBytes, &playlistResponse)
+	playlist := &Playlist{}
+	err = json.Unmarshal(bodyBytes, playlist)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	playlistId := playlistResponse.Id
+	playlistId := playlist.Id
 	if playlistId == "" {
-		return fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
+		return nil, fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
 	}
 
 	for i := 0; i < len(tracks); i += 100 {
@@ -377,12 +377,12 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 			"uris": ids,
 		})
 		if err != nil {
-			return err
+			return playlist, err
 		}
 
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			return err
+			return playlist, err
 		}
 
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -393,12 +393,12 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			return playlist, err
 		}
 		if resp.StatusCode != http.StatusCreated {
-			return fmt.Errorf("failed to add tracks to playlist: %s", resp.Status)
+			return playlist, fmt.Errorf("failed to add tracks to playlist: %s", resp.Status)
 		}
 	}
 
-	return nil
+	return playlist, nil
 }
