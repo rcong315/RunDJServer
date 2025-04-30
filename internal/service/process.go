@@ -202,7 +202,7 @@ func processAll(token string, userId string) {
 		if len(tracksToProcess) > 0 {
 			pool.Submit(&ProcessDataJob{
 				UserID:    userId,
-				Source:    "top tracks",
+				Source:    "top_tracks",
 				DataType:  "tracks",
 				Items:     tracksToProcess,
 				ProcessFn: processTracks,
@@ -228,7 +228,7 @@ func processAll(token string, userId string) {
 		if len(tracksToProcess) > 0 {
 			pool.Submit(&ProcessDataJob{
 				UserID:    userId,
-				Source:    "saved tracks",
+				Source:    "saved_tracks",
 				DataType:  "tracks",
 				Items:     tracksToProcess,
 				ProcessFn: processTracks,
@@ -343,7 +343,7 @@ func processAll(token string, userId string) {
 		if len(albumsToProcess) > 0 {
 			pool.Submit(&ProcessDataJob{
 				UserID:    userId,
-				Source:    "saved albums",
+				Source:    "saved_albums",
 				DataType:  "albums",
 				Items:     albumsToProcess,
 				ProcessFn: processAlbums,
@@ -354,7 +354,7 @@ func processAll(token string, userId string) {
 			pool.Submit(&FetchAndProcessAlbumTracksJob{
 				UserID:  userId,
 				AlbumID: albumId,
-				Source:  "saved albums",
+				Source:  "saved_albums",
 			}, &jobWg)
 		}
 	}
