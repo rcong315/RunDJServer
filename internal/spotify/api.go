@@ -218,14 +218,42 @@ func GetArtistsTopTracks(id string) ([]*Track, error) {
 	return allTracks, err
 }
 
-func GetArtistsAlbums(id string) ([]*Album, error) {
+func GetArtistsAlbumsAndSingles(id string) (map[string][]*Album, error) {
+	albumsAndSingles, err := getArtistsAlbums(id, "album,single")
+	if err != nil {
+		return nil, err
+	}
+
+	var albums, singles []*Album
+	for _, item := range albumsAndSingles {
+		if item.AlbumType == "album" {
+			albums = append(albums, item)
+		} else if item.AlbumType == "single" {
+			singles = append(singles, item)
+		}
+	}
+
+	return map[string][]*Album{
+		"albums":  albums,
+		"singles": singles,
+	}, nil
+}
+
+func GetArtistsCompilations(id string) ([]*Album, error) {
+	return getArtistsAlbums(id, "compilation")
+}
+
+func GetArtistsAppearsOn(id string) ([]*Album, error) {
+	return getArtistsAlbums(id, "appears_on")
+}
+
+func getArtistsAlbums(id string, include_groups string) ([]*Album, error) {
 	token, err := getSecretToken()
 	if err != nil {
 		return nil, err
 	}
 
-	albumTypes := "album,single"
-	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, id, albumTypes, limitMax, 0)
+	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, id, include_groups, limitMax, 0)
 
 	responses, err := fetchAllResults[ArtistsAlbumsResponse](token, url)
 	if err != nil {
@@ -309,7 +337,7 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	return result, nil
 }
 
-func CreatePlaylist(token string, userId string, bpm float64, min float64, max float64, tracks []string) error {
+func CreatePlaylist(token string, userId string, bpm float64, min float64, max float64, tracks []string) (*Playlist, error) {
 	// TODO: Check if playlist already exists
 
 	name := fmt.Sprintf("RunDJ %d BPM", int(math.Round(bpm)))
@@ -325,12 +353,12 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 	}
 	jsonData, err := json.Marshal(postData)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -341,28 +369,28 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	bodyString := string(bodyBytes)
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("failed to create playlist: %s", resp.Status)
+		return nil, fmt.Errorf("failed to create playlist: %s", resp.Status)
 	}
 
-	var playlistResponse PlaylistResponse
-	err = json.Unmarshal(bodyBytes, &playlistResponse)
+	playlist := &Playlist{}
+	err = json.Unmarshal(bodyBytes, playlist)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	playlistId := playlistResponse.Id
+	playlistId := playlist.Id
 	if playlistId == "" {
-		return fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
+		return nil, fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
 	}
 
 	for i := 0; i < len(tracks); i += 100 {
@@ -377,12 +405,12 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 			"uris": ids,
 		})
 		if err != nil {
-			return err
+			return playlist, err
 		}
 
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			return err
+			return playlist, err
 		}
 
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -393,12 +421,12 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			return playlist, err
 		}
 		if resp.StatusCode != http.StatusCreated {
-			return fmt.Errorf("failed to add tracks to playlist: %s", resp.Status)
+			return playlist, fmt.Errorf("failed to add tracks to playlist: %s", resp.Status)
 		}
 	}
 
-	return nil
+	return playlist, nil
 }

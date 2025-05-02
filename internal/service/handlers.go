@@ -13,8 +13,6 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
-const spotifyAPIURL = "https://api.spotify.com/v1"
-
 type Message struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
@@ -182,6 +180,8 @@ func MatchingTracksHandler(c *gin.Context) {
 	min := bpm - 1.5
 	max := bpm + 1.5
 
+	// TODO: pass sources
+
 	tracks, err := db.GetTracksByBPM(userId, min, max)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -243,16 +243,13 @@ func CreatePlaylistHandler(c *gin.Context) {
 	}
 
 	log.Printf("Creating playlist for user %s for the bpm range %f-%f with %d songs", userId, min, max, len(tracks))
-	err = spotify.CreatePlaylist(token, userId, bpm, min, max, tracks)
-	if err != nil {
+	playlist, err := spotify.CreatePlaylist(token, userId, bpm, min, max, tracks)
+	if err != nil && playlist.Id == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Error creating playlist: " + err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, Message{
-		Status:  "success",
-		Message: "Playlist created successfully",
-	})
+	c.JSON(http.StatusOK, playlist)
 }

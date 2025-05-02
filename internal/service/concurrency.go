@@ -82,16 +82,17 @@ func (wp *WorkerPool) Stop() {
 type ProcessedTracker struct {
 	mu               sync.Mutex
 	processedTracks  map[string]struct{}
-	processedAlbums  map[string]struct{}
 	processedArtists map[string]struct{}
-	// Add more maps if needed (e.g., playlist relations)
+	processedAlbums  map[string]struct{}
+	processedSingles map[string]struct{}
 }
 
 func NewProcessedTracker() *ProcessedTracker {
 	return &ProcessedTracker{
 		processedTracks:  make(map[string]struct{}),
-		processedAlbums:  make(map[string]struct{}),
 		processedArtists: make(map[string]struct{}),
+		processedAlbums:  make(map[string]struct{}),
+		processedSingles: make(map[string]struct{}),
 	}
 }
 
@@ -104,10 +105,12 @@ func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
 	switch itemType {
 	case "track":
 		targetMap = pt.processedTracks
-	case "album":
-		targetMap = pt.processedAlbums
 	case "artist":
 		targetMap = pt.processedArtists
+	case "album":
+		targetMap = pt.processedAlbums
+	case "single":
+		targetMap = pt.processedSingles
 	default:
 		log.Printf("WARN: Unknown item type '%s' for processed check", itemType)
 		return false // Don't block unknown types, but log it
@@ -146,6 +149,7 @@ type FetchAndProcessPlaylistTracksJob struct {
 type FetchArtistSubDataJob struct {
 	UserID   string
 	ArtistID string
+	Source   string
 }
 
 type FetchAndProcessAlbumTracksJob struct {
@@ -177,49 +181,10 @@ func (j *ProcessDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, proces
 }
 
 func (j *FetchAndProcessPlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, processedTracker *ProcessedTracker) error {
-	log.Printf("Job: Getting tracks from playlist: %s", j.PlaylistID)
-	playlistTracks, err := spotify.GetPlaylistsTracks(j.Token, j.PlaylistID)
-	if err != nil {
-		// Log specific error, but return a wrapped error for aggregation
-		log.Printf("Error getting tracks from playlist %s: %v", j.PlaylistID, err)
-		return fmt.Errorf("getting tracks for playlist %s: %w", j.PlaylistID, err)
-	}
-
-	if len(playlistTracks) == 0 {
-		log.Printf("No tracks found for playlist %s", j.PlaylistID)
-		return nil // Not an error if playlist is empty
-	}
-
-	// --- Deduplication before processing ---
-	var tracksToProcess []*spotify.Track
-	for _, track := range playlistTracks {
-		if track != nil && track.Id != "" {
-			if !processedTracker.CheckAndMark("track", track.Id) {
-				tracksToProcess = append(tracksToProcess, track)
-			} else {
-				log.Printf("Skipping already processed track %s from playlist %s", track.Id, j.PlaylistID)
-			}
-		}
-	}
-	// TODO: Handle track_playlist_relation saving here or modify processTracks.
-	// If processTracks needs playlistId, pass it via source or modify signature.
-	// Example: source := fmt.Sprintf("%s:%s", SourcePlaylistTracks, j.PlaylistID)
-
-	if len(tracksToProcess) > 0 {
-		log.Printf("Job: Submitting processing for %d tracks from playlist %s", len(tracksToProcess), j.PlaylistID)
-		// Process the filtered tracks (could call processTracks directly or submit another job)
-		// Calling directly is simpler here as data is already fetched.
-		err = processTracks(j.UserID, tracksToProcess, j.Source) // Pass filtered list
-		if err != nil {
-			return fmt.Errorf("processing tracks for playlist %s: %w", j.PlaylistID, err)
-		}
-	} else {
-		log.Printf("No new tracks to process for playlist %s after deduplication", j.PlaylistID)
-	}
-
-	return nil
+	return processPlaylistTracks(j.UserID, j.Token, j.PlaylistID, j.Source, processedTracker)
 }
 
+// TODO: move to processItems
 func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, processedTracker *ProcessedTracker) error {
 	var artistErrors []error
 
@@ -241,20 +206,23 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 			log.Printf("Submitting job for %d top tracks from artist %s", len(tracksToProcess), j.ArtistID)
 			pool.Submit(&ProcessDataJob{
 				UserID:    j.UserID,
-				Source:    fmt.Sprintf("%s:%s", "artist's top tracks", j.ArtistID),
+				Source:    j.Source + "_top_tracks",
 				DataType:  "tracks",
 				Items:     tracksToProcess,
-				ProcessFn: processTracks,
+				ProcessFn: saveTracks,
 			}, jobWg)
 		}
 	}
 
 	log.Printf("Job: Getting albums for artist: %s", j.ArtistID)
-	artistAlbums, err := spotify.GetArtistsAlbums(j.ArtistID)
+	albumsAndSingles, err := spotify.GetArtistsAlbumsAndSingles(j.ArtistID)
 	if err != nil {
 		log.Printf("Error getting albums for artist %s: %v", j.ArtistID, err)
 		artistErrors = append(artistErrors, fmt.Errorf("getting albums for artist %s: %w", j.ArtistID, err))
-	} else if len(artistAlbums) > 0 {
+	}
+
+	artistAlbums := albumsAndSingles["albums"]
+	if len(artistAlbums) > 0 {
 		var albumsToProcess []*spotify.Album
 		var albumIdsForTrackFetch []string
 		for _, album := range artistAlbums {
@@ -272,10 +240,10 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 			log.Printf("Submitting job for %d albums metadata from artist %s", len(albumsToProcess), j.ArtistID)
 			pool.Submit(&ProcessDataJob{
 				UserID:    j.UserID,
-				Source:    fmt.Sprintf("%s:%s", "artist's album", j.ArtistID),
+				Source:    j.Source + "_album", //TODO: differentiate between album and single
 				DataType:  "albums",
 				Items:     albumsToProcess,
-				ProcessFn: processAlbums,
+				ProcessFn: saveAlbums,
 			}, jobWg)
 		}
 
@@ -284,7 +252,43 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 			pool.Submit(&FetchAndProcessAlbumTracksJob{
 				UserID:  j.UserID,
 				AlbumID: albumId,
-				Source:  "artist's album",
+				Source:  j.Source + "_album",
+			}, jobWg)
+		}
+	}
+
+	artistSingles := albumsAndSingles["singles"]
+	if len(artistSingles) > 0 {
+		var singlesToProcess []*spotify.Album
+		var singlesIdsForTrackFetch []string
+		for _, single := range artistSingles {
+			if single != nil && single.Id != "" {
+				if !processedTracker.CheckAndMark("single", single.Id) {
+					singlesToProcess = append(singlesToProcess, single)
+					singlesIdsForTrackFetch = append(singlesIdsForTrackFetch, single.Id)
+				} else {
+					log.Printf("Skipping already processed single %s from artist %s", single.Id, j.ArtistID)
+				}
+			}
+		}
+
+		if len(singlesToProcess) > 0 {
+			log.Printf("Submitting job for %d singles metadata from artist %s", len(singlesToProcess), j.ArtistID)
+			pool.Submit(&ProcessDataJob{
+				UserID:    j.UserID,
+				Source:    j.Source + "_singles",
+				DataType:  "singles",
+				Items:     singlesToProcess,
+				ProcessFn: saveAlbums,
+			}, jobWg)
+		}
+
+		for _, singleId := range singlesIdsForTrackFetch {
+			log.Printf("Submitting job to fetch tracks for single %s (from artist %s)", singleId, j.ArtistID)
+			pool.Submit(&FetchAndProcessAlbumTracksJob{
+				UserID:  j.UserID,
+				AlbumID: singleId,
+				Source:  j.Source + "_singles",
 			}, jobWg)
 		}
 	}
@@ -326,7 +330,7 @@ func (j *FetchAndProcessAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.Wa
 
 	if len(tracksToProcess) > 0 {
 		log.Printf("Job: Submitting processing for %d tracks from album %s", len(tracksToProcess), j.AlbumID)
-		err = processTracks(j.UserID, tracksToProcess, j.Source)
+		err = saveTracks(j.UserID, tracksToProcess, j.Source)
 		if err != nil {
 			return fmt.Errorf("processing tracks for album %s: %w", j.AlbumID, err)
 		}
