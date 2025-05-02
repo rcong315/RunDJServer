@@ -13,8 +13,6 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
-const spotifyAPIURL = "https://api.spotify.com/v1"
-
 type Message struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`

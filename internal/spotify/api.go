@@ -218,14 +218,42 @@ func GetArtistsTopTracks(id string) ([]*Track, error) {
 	return allTracks, err
 }
 
-func GetArtistsAlbums(id string) ([]*Album, error) {
+func GetArtistsAlbumsAndSingles(id string) (map[string][]*Album, error) {
+	albumsAndSingles, err := getArtistsAlbums(id, "album,single")
+	if err != nil {
+		return nil, err
+	}
+
+	var albums, singles []*Album
+	for _, item := range albumsAndSingles {
+		if item.AlbumType == "album" {
+			albums = append(albums, item)
+		} else if item.AlbumType == "single" {
+			singles = append(singles, item)
+		}
+	}
+
+	return map[string][]*Album{
+		"albums":  albums,
+		"singles": singles,
+	}, nil
+}
+
+func GetArtistsCompilations(id string) ([]*Album, error) {
+	return getArtistsAlbums(id, "compilation")
+}
+
+func GetArtistsAppearsOn(id string) ([]*Album, error) {
+	return getArtistsAlbums(id, "appears_on")
+}
+
+func getArtistsAlbums(id string, include_groups string) ([]*Album, error) {
 	token, err := getSecretToken()
 	if err != nil {
 		return nil, err
 	}
 
-	albumTypes := "album,single"
-	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, id, albumTypes, limitMax, 0)
+	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, id, include_groups, limitMax, 0)
 
 	responses, err := fetchAllResults[ArtistsAlbumsResponse](token, url)
 	if err != nil {

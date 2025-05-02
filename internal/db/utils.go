@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -117,7 +118,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 
 	batch := &pgx.Batch{}
 	sliceLen := slice.Len()
-	for i := 0; i < sliceLen; i++ { // Corrected loop iteration
+	for i := range sliceLen { // Corrected loop iteration
 		item := slice.Index(i).Interface()
 		params := paramConverter(item)
 
@@ -133,6 +134,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 			batch = &pgx.Batch{}
 			if err := processBatchResults(br, sentCount); err != nil {
 				// Rollback handled by defer
+				log.Printf("Error processing final batch: %v", item)
 				return fmt.Errorf("batch execution error (batch size %d): %w", sentCount, err)
 			}
 		}
@@ -143,6 +145,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 		sentCount := batch.Len()
 		if err := processBatchResults(br, sentCount); err != nil {
 			// Rollback handled by defer
+			log.Printf("Error processing final batch: %v", batch)
 			return fmt.Errorf("final batch execution error (batch size %d): %w", sentCount, err)
 		}
 	}
