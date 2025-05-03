@@ -240,7 +240,7 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 			log.Printf("Submitting job for %d albums metadata from artist %s", len(albumsToProcess), j.ArtistID)
 			pool.Submit(&ProcessDataJob{
 				UserID:    j.UserID,
-				Source:    j.Source + "_album", //TODO: differentiate between album and single
+				Source:    j.Source + "_album",
 				DataType:  "albums",
 				Items:     albumsToProcess,
 				ProcessFn: saveAlbums,

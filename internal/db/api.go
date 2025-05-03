@@ -97,6 +97,30 @@ func SaveTracks(userId string, tracks []*Track, source string) error {
 		return fmt.Errorf("error saving user track relations: %v", err)
 	}
 
+	// if playlistId != "" {
+	// 	var trackPlaylistRelations []TrackPlaylistRelation
+	// 	for _, track := range tracks {
+	// 		trackPlaylistRelation := TrackPlaylistRelation{
+	// 			TrackId:    track.TrackId,
+	// 			PlaylistId: playlistId,
+	// 			Sources:    []string{source},
+	// 		}
+	// 		trackPlaylistRelations = append(trackPlaylistRelations, trackPlaylistRelation)
+	// 	}
+	// 	log.Printf("Saving %d track playlist relations for user %s", len(tracks), userId)
+	// 	err = batchAndSave(trackPlaylistRelations, "insertTrackPlaylistRelation", func(item any) []any {
+	// 		trackPlaylistRelation := item.(TrackPlaylistRelation)
+	// 		return []any{
+	// 			trackPlaylistRelation.TrackId,
+	// 			trackPlaylistRelation.PlaylistId,
+	// 			trackPlaylistRelation.Sources,
+	// 		}
+	// 	})
+	// 	if err != nil {
+	// 		return fmt.Errorf("error saving track playlist relations: %v", err)
+	// 	}
+	// }
+
 	return nil
 }
 
@@ -239,6 +263,27 @@ func SaveAlbums(userId string, albums []*Album, source string) error {
 	if err != nil {
 		return fmt.Errorf("error saving user album relations: %v", err)
 	}
+
+	return nil
+}
+
+func SaveTrackPlaylistRelations(userId string, trackPlaylistRelations []*TrackPlaylistRelation, source string) error {
+	if len(trackPlaylistRelations) == 0 {
+		return nil
+	}
+
+	err := batchAndSave(trackPlaylistRelations, "insertTrackPlaylistRelation", func(item any) []any {
+		relation := item.(*TrackPlaylistRelation)
+		return []any{
+			relation.TrackId,
+			relation.PlaylistId,
+			relation.Sources,
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("error saving track-playlist relations: %v", err)
+	}
+	log.Printf("Saved %d track-playlist relations for user %s", len(trackPlaylistRelations), userId)
 
 	return nil
 }

@@ -152,3 +152,37 @@ func saveAlbums(userId string, items any, source string) error {
 	log.Printf("Saved %d albums for user %s from source %s", len(albumData), userId, source)
 	return nil
 }
+
+func saveTrackPlaylistRelation(playlistId string, items []*spotify.Track, source string) error {
+	if len(items) == 0 {
+		log.Printf("No track-playlist relations to save for playlist %s from source %s", playlistId, source)
+		return nil
+	}
+
+	log.Printf("Saving %d track-playlist relations for playlist %s from source %s", len(items), playlistId, source)
+	var trackPlaylistData []*db.TrackPlaylistRelation
+	for _, relation := range items {
+		if relation != nil && relation.Id != "" {
+			dbRelation := &db.TrackPlaylistRelation{
+				TrackId:    relation.Id,
+				PlaylistId: playlistId,
+				Sources:    []string{source},
+			}
+			trackPlaylistData = append(trackPlaylistData, dbRelation)
+		}
+	}
+
+	if len(trackPlaylistData) == 0 {
+		log.Printf("No valid track-playlist relations found to save for playlist %s from source %s", playlistId, source)
+		return nil
+	}
+
+	err := db.SaveTrackPlaylistRelations(playlistId, trackPlaylistData, source)
+	if err != nil {
+		log.Printf("Error saving %d track-playlist relations for playlist %s from source %s: %v", len(trackPlaylistData), playlistId, source, err)
+		return fmt.Errorf("saving %d track-playlist relations from %s: %w", len(trackPlaylistData), source, err)
+	}
+	log.Printf("Saved %d track-playlist relations for playlist %s from source %s", len(trackPlaylistData), playlistId, source)
+
+	return nil
+}

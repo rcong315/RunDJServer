@@ -120,9 +120,6 @@ func processPlaylistTracks(userId string, token string, playlistId string, sourc
 			}
 		}
 	}
-	// TODO: Handle track_playlist_relation saving here or modify processTracks.
-	// If processTracks needs playlistId, pass it via source or modify signature.
-	// Example: source := fmt.Sprintf("%s:%s", SourcePlaylistTracks, playlistId)
 
 	if len(tracksToProcess) > 0 {
 		log.Printf("Job: Submitting processing for %d tracks from playlist %s", len(tracksToProcess), playlistId)
@@ -132,6 +129,7 @@ func processPlaylistTracks(userId string, token string, playlistId string, sourc
 		if err != nil {
 			return fmt.Errorf("processing tracks for playlist %s: %w", playlistId, err)
 		}
+		saveTrackPlaylistRelation(playlistId, tracksToProcess, source)
 	} else {
 		log.Printf("No new tracks to process for playlist %s after deduplication", playlistId)
 	}
@@ -267,6 +265,7 @@ func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *
 
 // TODO: When to run this function? On register and when else? Cron?
 // TODO: Add release radar playlist
+// TODO: Try seperating files by track, playlist, artist, etc.?
 func processAll(token string, userId string) {
 	log.Printf("Starting data processing for user %s", userId)
 
