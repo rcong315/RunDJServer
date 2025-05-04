@@ -1,5 +1,5 @@
-INSERT INTO "track_playlist_relation" (track_id, playlist_id)
-VALUES ($1, $2) ON CONFLICT (track_id, playlist_id)
+INSERT INTO "track_playlist_relation" (track_id, playlist_id, sources)
+VALUES ($1, $2, $3) ON CONFLICT (track_id, playlist_id) DO
 UPDATE
 SET sources = (
         SELECT array_agg(DISTINCT element)

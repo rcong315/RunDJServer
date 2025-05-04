@@ -125,11 +125,15 @@ func processPlaylistTracks(userId string, token string, playlistId string, sourc
 		log.Printf("Job: Submitting processing for %d tracks from playlist %s", len(tracksToProcess), playlistId)
 		// Process the filtered tracks (could call processTracks directly or submit another job)
 		// Calling directly is simpler here as data is already fetched.
-		err = saveTracks(userId, tracksToProcess, source) // Pass filtered list
+		err := saveTracks(userId, tracksToProcess, source) // Pass filtered list
 		if err != nil {
 			return fmt.Errorf("processing tracks for playlist %s: %w", playlistId, err)
 		}
-		saveTrackPlaylistRelation(playlistId, tracksToProcess, source)
+
+		err = saveTrackPlaylistRelation(playlistId, tracksToProcess, source)
+		if err != nil {
+			return fmt.Errorf("saving track-playlist relation for playlist %s: %w", playlistId, err)
+		}
 	} else {
 		log.Printf("No new tracks to process for playlist %s after deduplication", playlistId)
 	}
@@ -329,7 +333,7 @@ func processAll(token string, userId string) {
 			log.Printf("Error %d: %v", i+1, e)
 		}
 		log.Printf("Finished processing for user %s with %d errors.", userId, len(allErrors))
+	} else {
+		log.Printf("Finished processing for user %s with 0 errors", userId)
 	}
-
-	log.Printf("Finished processing for user %s", userId)
 }
