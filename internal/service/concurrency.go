@@ -136,7 +136,7 @@ type ProcessDataJob struct {
 	Source    string
 	DataType  string
 	Items     any // Use interface{} or generics (Go 1.18+)
-	ProcessFn func(userId string, items any, source string) error
+	ProcessFn func(userId string, items any, source string, tracker *ProcessedTracker) error
 }
 
 type FetchAndProcessPlaylistTracksJob struct {
@@ -172,7 +172,7 @@ func (j *SaveUserJob) Execute() error {
 func (j *ProcessDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, processedTracker *ProcessedTracker) error {
 	// Note: This job structure assumes the data (Items) is already fetched.
 	// You might need different job types if the job itself needs to fetch data.
-	err := j.ProcessFn(j.UserID, j.Items, j.Source)
+	err := j.ProcessFn(j.UserID, j.Items, j.Source, processedTracker)
 	if err != nil {
 		// Error is already logged in ProcessFn, just return it
 		return fmt.Errorf("processing %s for user %s from source %s: %w", j.DataType, j.UserID, j.Source, err)
@@ -194,24 +194,14 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 		log.Printf("Error getting top tracks for artist %s: %v", j.ArtistID, err)
 		artistErrors = append(artistErrors, fmt.Errorf("getting top tracks for artist %s: %w", j.ArtistID, err))
 	} else if len(artistTopTracks) > 0 {
-		var tracksToProcess []*spotify.Track
-		for _, track := range artistTopTracks {
-			if track != nil && track.Id != "" {
-				if !processedTracker.CheckAndMark("track", track.Id) {
-					tracksToProcess = append(tracksToProcess, track)
-				}
-			}
-		}
-		if len(tracksToProcess) > 0 {
-			log.Printf("Submitting job for %d top tracks from artist %s", len(tracksToProcess), j.ArtistID)
-			pool.Submit(&ProcessDataJob{
-				UserID:    j.UserID,
-				Source:    j.Source + "_top_tracks",
-				DataType:  "tracks",
-				Items:     tracksToProcess,
-				ProcessFn: saveTracks,
-			}, jobWg)
-		}
+		log.Printf("Submitting job for %d top tracks from artist %s", len(artistTopTracks), j.ArtistID)
+		pool.Submit(&ProcessDataJob{
+			UserID:    j.UserID,
+			Source:    j.Source + "_top_tracks",
+			DataType:  "tracks",
+			Items:     artistTopTracks,
+			ProcessFn: saveTracks,
+		}, jobWg)
 	}
 
 	log.Printf("Job: Getting albums for artist: %s", j.ArtistID)
@@ -221,73 +211,50 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 		artistErrors = append(artistErrors, fmt.Errorf("getting albums for artist %s: %w", j.ArtistID, err))
 	}
 
-	artistAlbums := albumsAndSingles["albums"]
+	var artistAlbums, artistSingles []*spotify.Album
+	for _, item := range albumsAndSingles {
+		if item.AlbumType == "album" {
+			artistAlbums = append(artistAlbums, item)
+		} else if item.AlbumType == "single" {
+			artistSingles = append(artistSingles, item)
+		}
+	}
+
 	if len(artistAlbums) > 0 {
-		var albumsToProcess []*spotify.Album
-		var albumIdsForTrackFetch []string
+		log.Printf("Submitting job for %d albums metadata from artist %s", len(artistAlbums), j.ArtistID)
+		pool.Submit(&ProcessDataJob{
+			UserID:    j.UserID,
+			Source:    j.Source + "_album",
+			DataType:  "albums",
+			Items:     artistAlbums,
+			ProcessFn: saveAlbums,
+		}, jobWg)
+
 		for _, album := range artistAlbums {
-			if album != nil && album.Id != "" {
-				if !processedTracker.CheckAndMark("album", album.Id) {
-					albumsToProcess = append(albumsToProcess, album)
-					albumIdsForTrackFetch = append(albumIdsForTrackFetch, album.Id)
-				} else {
-					log.Printf("Skipping already processed album %s from artist %s", album.Id, j.ArtistID)
-				}
-			}
-		}
-
-		if len(albumsToProcess) > 0 {
-			log.Printf("Submitting job for %d albums metadata from artist %s", len(albumsToProcess), j.ArtistID)
-			pool.Submit(&ProcessDataJob{
-				UserID:    j.UserID,
-				Source:    j.Source + "_album",
-				DataType:  "albums",
-				Items:     albumsToProcess,
-				ProcessFn: saveAlbums,
-			}, jobWg)
-		}
-
-		for _, albumId := range albumIdsForTrackFetch {
-			log.Printf("Submitting job to fetch tracks for album %s (from artist %s)", albumId, j.ArtistID)
+			log.Printf("Submitting job to fetch tracks for album %s (from artist %s)", album.Id, j.ArtistID)
 			pool.Submit(&FetchAndProcessAlbumTracksJob{
 				UserID:  j.UserID,
-				AlbumID: albumId,
+				AlbumID: album.Id,
 				Source:  j.Source + "_album",
 			}, jobWg)
 		}
 	}
 
-	artistSingles := albumsAndSingles["singles"]
 	if len(artistSingles) > 0 {
-		var singlesToProcess []*spotify.Album
-		var singlesIdsForTrackFetch []string
+		log.Printf("Submitting job for %d singles metadata from artist %s", len(artistSingles), j.ArtistID)
+		pool.Submit(&ProcessDataJob{
+			UserID:    j.UserID,
+			Source:    j.Source + "_singles",
+			DataType:  "singles",
+			Items:     artistSingles,
+			ProcessFn: saveAlbums,
+		}, jobWg)
+
 		for _, single := range artistSingles {
-			if single != nil && single.Id != "" {
-				if !processedTracker.CheckAndMark("single", single.Id) {
-					singlesToProcess = append(singlesToProcess, single)
-					singlesIdsForTrackFetch = append(singlesIdsForTrackFetch, single.Id)
-				} else {
-					log.Printf("Skipping already processed single %s from artist %s", single.Id, j.ArtistID)
-				}
-			}
-		}
-
-		if len(singlesToProcess) > 0 {
-			log.Printf("Submitting job for %d singles metadata from artist %s", len(singlesToProcess), j.ArtistID)
-			pool.Submit(&ProcessDataJob{
-				UserID:    j.UserID,
-				Source:    j.Source + "_singles",
-				DataType:  "singles",
-				Items:     singlesToProcess,
-				ProcessFn: saveAlbums,
-			}, jobWg)
-		}
-
-		for _, singleId := range singlesIdsForTrackFetch {
-			log.Printf("Submitting job to fetch tracks for single %s (from artist %s)", singleId, j.ArtistID)
+			log.Printf("Submitting job to fetch tracks for single %s (from artist %s)", single.Id, j.ArtistID)
 			pool.Submit(&FetchAndProcessAlbumTracksJob{
 				UserID:  j.UserID,
-				AlbumID: singleId,
+				AlbumID: single.Id,
 				Source:  j.Source + "_singles",
 			}, jobWg)
 		}
@@ -295,47 +262,32 @@ func (j *FetchArtistSubDataJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 
 	// Aggregate errors from this artist's sub-tasks
 	if len(artistErrors) > 0 {
-		// Use errors.Join (Go 1.20+) or simple wrapping
+		// TODO: Use errors.Join (Go 1.20+) or simple wrapping
 		return fmt.Errorf("failed fetching sub-data for artist %s: %v", j.ArtistID, artistErrors) // Basic wrapping
 	}
 	return nil
 }
 
 func (j *FetchAndProcessAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, processedTracker *ProcessedTracker) error {
-	log.Printf("Job: Getting tracks from album: %s", j.AlbumID)
-	albumTracks, err := spotify.GetAlbumsTracks(j.AlbumID)
+	albumId := j.AlbumID
+	log.Printf("Job: Getting tracks from album: %s", albumId)
+	albumTracks, err := spotify.GetAlbumsTracks(albumId)
 	if err != nil {
-		log.Printf("Error getting tracks from album %s: %v", j.AlbumID, err)
-		return fmt.Errorf("getting tracks for album %s: %w", j.AlbumID, err)
+		log.Printf("Error getting tracks from album %s: %v", albumId, err)
+		return fmt.Errorf("getting tracks for album %s: %w", albumId, err)
 	}
 
 	if len(albumTracks) == 0 {
-		log.Printf("No tracks found for album %s", j.AlbumID)
+		log.Printf("No tracks found for album %s", albumId)
 		return nil
 	}
 
-	var tracksToProcess []*spotify.Track
-	for _, track := range albumTracks {
-		if track != nil && track.Id != "" {
-			if track.Album == nil || track.Album.Id == "" {
-				track.Album = &spotify.Album{Id: j.AlbumID}
-			}
-			if !processedTracker.CheckAndMark("track", track.Id) {
-				tracksToProcess = append(tracksToProcess, track)
-			} else {
-				log.Printf("Skipping already processed track %s from album %s", track.Id, j.AlbumID)
-			}
-		}
-	}
+	log.Printf("Job: Submitting processing for %d tracks from album %s", len(albumTracks), albumId)
+	pool.Submit(&FetchAndProcessAlbumTracksJob{
+		UserID:  j.UserID,
+		AlbumID: albumId,
+		Source:  j.Source + "_singles",
+	}, jobWg)
 
-	if len(tracksToProcess) > 0 {
-		log.Printf("Job: Submitting processing for %d tracks from album %s", len(tracksToProcess), j.AlbumID)
-		err = saveTracks(j.UserID, tracksToProcess, j.Source)
-		if err != nil {
-			return fmt.Errorf("processing tracks for album %s: %w", j.AlbumID, err)
-		}
-	} else {
-		log.Printf("No new tracks to process for album %s after deduplication", j.AlbumID)
-	}
 	return nil
 }

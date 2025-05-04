@@ -218,25 +218,13 @@ func GetArtistsTopTracks(id string) ([]*Track, error) {
 	return allTracks, err
 }
 
-func GetArtistsAlbumsAndSingles(id string) (map[string][]*Album, error) {
+func GetArtistsAlbumsAndSingles(id string) ([]*Album, error) {
 	albumsAndSingles, err := getArtistsAlbums(id, "album,single")
 	if err != nil {
 		return nil, err
 	}
 
-	var albums, singles []*Album
-	for _, item := range albumsAndSingles {
-		if item.AlbumType == "album" {
-			albums = append(albums, item)
-		} else if item.AlbumType == "single" {
-			singles = append(singles, item)
-		}
-	}
-
-	return map[string][]*Album{
-		"albums":  albums,
-		"singles": singles,
-	}, nil
+	return albumsAndSingles, nil
 }
 
 func GetArtistsCompilations(id string) ([]*Album, error) {
