@@ -156,3 +156,21 @@ func saveAlbums(userId string, items any, source string, tracker *ProcessedTrack
 	log.Printf("Saved %d albums for user %s from source %s", len(dbAlbums), userId, source)
 	return nil
 }
+
+func saveTrackPlaylistRelations(userId string, items []*spotify.Track, source string) error {
+	if len(items) == 0 {
+		log.Printf("No tracks to save for user %s from source %s", userId, source)
+		return nil
+	}
+
+	log.Printf("Saving %d track-playlist relations for user %s from source %s", len(items), userId, source)
+	dbTracks := convertSpotifyTracksToDBTracks(items)
+
+	err := db.SaveTrackPlaylistRelations(userId, dbTracks, source)
+	if err != nil {
+		return fmt.Errorf("saving %d track-playlist relations from %s: %w", len(dbTracks), source, err)
+	}
+
+	log.Printf("Saved %d track-playlist relations for user %s from source %s", len(dbTracks), userId, source)
+	return nil
+}

@@ -176,6 +176,11 @@ func processPlaylistTracks(userId string, token string, playlistId string, sourc
 		return fmt.Errorf("processing tracks for playlist %s: %w", playlistId, err)
 	}
 
+	err = saveTrackPlaylistRelations(playlistId, playlistTracks, source)
+	if err != nil {
+		return fmt.Errorf("saving track-playlist relations for playlist %s: %w", playlistId, err)
+	}
+
 	return nil
 }
 
