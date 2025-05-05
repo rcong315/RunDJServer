@@ -45,102 +45,149 @@ func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 
 // TODO: Combine spotify and db types
 
-func convertSpotifyTrackToDBTrack(track *spotify.Track) *db.Track {
-	artistIds := make([]string, len(track.Artists))
-	for i, artist := range track.Artists {
-		artistIds[i] = artist.Id
-	}
-	audioFeatures := track.AudioFeatures
-	var dbAudioFeatures *db.AudioFeatures
-	if track.AudioFeatures == nil {
-		dbAudioFeatures = &db.AudioFeatures{}
-	} else {
-		dbAudioFeatures = &db.AudioFeatures{
-			Danceability:      audioFeatures.Danceability,
-			Energy:            audioFeatures.Energy,
-			Key:               audioFeatures.Key,
-			Loudness:          audioFeatures.Loudness,
-			Mode:              audioFeatures.Mode,
-			Speechiness:       audioFeatures.Speechiness,
-			Acousticness:      audioFeatures.Acousticness,
-			Instrumentallness: audioFeatures.Instrumentallness,
-			Liveness:          audioFeatures.Liveness,
-			Valence:           audioFeatures.Valence,
-			Tempo:             audioFeatures.Tempo,
-			Duration:          audioFeatures.Duration,
-			TimeSignature:     audioFeatures.TimeSignature,
+func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
+	var dbTracks []*db.Track
+	for _, track := range tracks {
+		if track == nil || track.Id == "" {
+			continue
 		}
-	}
-	dbTrack := db.Track{
-		TrackId:          track.Id,
-		Name:             track.Name,
-		ArtistIds:        artistIds,
-		AlbumId:          track.Album.Id,
-		Popularity:       track.Popularity,
-		DurationMS:       track.DurationMS,
-		AvailableMarkets: track.AvailableMarkets,
-		AudioFeatures:    dbAudioFeatures,
+
+		artistIds := make([]string, len(track.Artists))
+		for i, artist := range track.Artists {
+			artistIds[i] = artist.Id
+		}
+
+		var albumId string
+		if track.Album == nil {
+			albumId = ""
+		} else {
+			albumId = track.Album.Id
+		}
+
+		audioFeatures := track.AudioFeatures
+		var dbAudioFeatures *db.AudioFeatures
+		if track.AudioFeatures == nil {
+			dbAudioFeatures = &db.AudioFeatures{}
+		} else {
+			dbAudioFeatures = &db.AudioFeatures{
+				Danceability:      audioFeatures.Danceability,
+				Energy:            audioFeatures.Energy,
+				Key:               audioFeatures.Key,
+				Loudness:          audioFeatures.Loudness,
+				Mode:              audioFeatures.Mode,
+				Speechiness:       audioFeatures.Speechiness,
+				Acousticness:      audioFeatures.Acousticness,
+				Instrumentallness: audioFeatures.Instrumentallness,
+				Liveness:          audioFeatures.Liveness,
+				Valence:           audioFeatures.Valence,
+				Tempo:             audioFeatures.Tempo,
+				Duration:          audioFeatures.Duration,
+				TimeSignature:     audioFeatures.TimeSignature,
+			}
+		}
+
+		dbTrack := &db.Track{
+			TrackId:          track.Id,
+			Name:             track.Name,
+			ArtistIds:        artistIds,
+			AlbumId:          albumId,
+			Popularity:       track.Popularity,
+			DurationMS:       track.DurationMS,
+			AvailableMarkets: track.AvailableMarkets,
+			AudioFeatures:    dbAudioFeatures,
+		}
+		dbTracks = append(dbTracks, dbTrack)
 	}
 
-	return &dbTrack
+	return dbTracks
 }
 
-func convertSpotifyPlaylistToDBPlaylist(playlist *spotify.Playlist) *db.Playlist {
-	imageURLs := make([]string, len(playlist.Images))
-	for i, img := range playlist.Images {
-		imageURLs[i] = img.URL
+func convertSpotifyPlaylistsToDBPlaylists(playlists []*spotify.Playlist) []*db.Playlist {
+	var dbPlaylists []*db.Playlist
+	for _, playlist := range playlists {
+		if playlist == nil || playlist.Id == "" {
+			continue
+		}
+
+		imageURLs := make([]string, len(playlist.Images))
+		for i, img := range playlist.Images {
+			imageURLs[i] = img.URL
+		}
+
+		dbPlaylist := &db.Playlist{
+			PlaylistId:  playlist.Id,
+			Name:        playlist.Name,
+			Description: playlist.Description,
+			OwnerId:     playlist.Owner.Id,
+			Public:      playlist.Public,
+			Followers:   playlist.Followers.Total,
+			ImageURLs:   imageURLs,
+		}
+		dbPlaylists = append(dbPlaylists, dbPlaylist)
 	}
 
-	return &db.Playlist{
-		PlaylistId:  playlist.Id,
-		Name:        playlist.Name,
-		Description: playlist.Description,
-		OwnerId:     playlist.Owner.Id,
-		Public:      playlist.Public,
-		Followers:   playlist.Followers.Total,
-		ImageURLs:   imageURLs,
-	}
+	return dbPlaylists
 }
 
-func convertSpotifyAlbumToDBAlbum(album *spotify.Album) *db.Album {
-	artistIds := make([]string, len(album.Artists))
-	for i, artist := range album.Artists {
-		artistIds[i] = artist.Id
+func convertSpotifyArtistsToDBArtists(artists []*spotify.Artist) []*db.Artist {
+	var dbArtists []*db.Artist
+	for _, artist := range artists {
+		if artist == nil || artist.Id == "" {
+			continue
+		}
+
+		imageURLs := make([]string, len(artist.Images))
+		for i, img := range artist.Images {
+			imageURLs[i] = img.URL
+		}
+
+		dbArtist := &db.Artist{
+			ArtistId:   artist.Id,
+			Name:       artist.Name,
+			Genres:     artist.Genres,
+			Popularity: artist.Popularity,
+			Followers:  artist.Followers.Total,
+			ImageURLs:  imageURLs,
+		}
+		dbArtists = append(dbArtists, dbArtist)
 	}
 
-	imageURLs := make([]string, len(album.Images))
-	for i, img := range album.Images {
-		imageURLs[i] = img.URL
-	}
-
-	return &db.Album{
-		AlbumId:          album.Id,
-		Name:             album.Name,
-		ArtistIds:        artistIds,
-		Genres:           album.Genres,
-		Popularity:       album.Popularity,
-		AlbumType:        album.AlbumType,
-		TotalTracks:      album.TotalTracks,
-		ReleaseDate:      album.ReleaseDate,
-		AvailableMarkets: album.AvailableMarkets,
-		ImageURLs:        imageURLs,
-	}
+	return dbArtists
 }
 
-func convertSpotifyArtistToDBArtist(artist *spotify.Artist) *db.Artist {
-	imageURLs := make([]string, len(artist.Images))
-	for i, img := range artist.Images {
-		imageURLs[i] = img.URL
+func convertSpotifyAlbumsToDBAlbums(albums []*spotify.Album) []*db.Album {
+	var dbAlbums []*db.Album
+	for _, album := range albums {
+		if album == nil || album.Id == "" {
+			continue
+		}
+
+		artistIds := make([]string, len(album.Artists))
+		for i, artist := range album.Artists {
+			artistIds[i] = artist.Id
+		}
+
+		imageURLs := make([]string, len(album.Images))
+		for i, img := range album.Images {
+			imageURLs[i] = img.URL
+		}
+
+		dbAlbum := &db.Album{
+			AlbumId:          album.Id,
+			Name:             album.Name,
+			ArtistIds:        artistIds,
+			Genres:           album.Genres,
+			Popularity:       album.Popularity,
+			AlbumType:        album.AlbumType,
+			TotalTracks:      album.TotalTracks,
+			ReleaseDate:      album.ReleaseDate,
+			AvailableMarkets: album.AvailableMarkets,
+			ImageURLs:        imageURLs,
+		}
+		dbAlbums = append(dbAlbums, dbAlbum)
 	}
 
-	return &db.Artist{
-		ArtistId:   artist.Id,
-		Name:       artist.Name,
-		Genres:     artist.Genres,
-		Popularity: artist.Popularity,
-		Followers:  artist.Followers.Total,
-		ImageURLs:  imageURLs,
-	}
+	return dbAlbums
 }
 
 func removeDuplicateArtists(artists []*spotify.Artist) []*spotify.Artist {

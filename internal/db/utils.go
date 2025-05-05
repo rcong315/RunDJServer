@@ -23,7 +23,7 @@ var (
 
 //go:embed sql/*.sql
 var sqlFiles embed.FS // Variable to hold embedded SQL files
-const BatchSize = 100
+const BatchSize = 50
 
 func initDB() error {
 	dbHost := os.Getenv("DB_HOST")

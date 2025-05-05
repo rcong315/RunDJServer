@@ -21,7 +21,7 @@ func saveUser(user *spotify.User) {
 
 // TODO: Use generics
 
-func saveTracks(userId string, items any, source string) error {
+func saveTracks(userId string, items any, source string, tracker *ProcessedTracker) error {
 	tracks, ok := items.([]*spotify.Track)
 	if !ok {
 		return errors.New("invalid type: expected []*spotify.Track")
@@ -32,29 +32,30 @@ func saveTracks(userId string, items any, source string) error {
 	}
 
 	log.Printf("Saving %d tracks for user %s from source %s", len(tracks), userId, source)
-	var trackData []*db.Track
-	for _, track := range tracks {
-		if track != nil && track.Id != "" {
-			dbTrack := convertSpotifyTrackToDBTrack(track)
-			trackData = append(trackData, dbTrack)
+	dbTracks := convertSpotifyTracksToDBTracks(tracks)
+
+	var tracksToSave []*db.Track
+	for _, track := range dbTracks {
+		if track != nil && track.TrackId != "" && !tracker.CheckAndMark("track", track.TrackId) {
+			tracksToSave = append(tracksToSave, track)
 		}
 	}
 
-	if len(trackData) == 0 {
-		log.Printf("No valid tracks found to save for user %s from source %s", userId, source)
-		return nil
+	err := db.SaveTracks(userId, tracksToSave, source)
+	if err != nil {
+		return fmt.Errorf("saving %d tracks from %s: %w", len(tracksToSave), source, err)
 	}
 
-	err := db.SaveTracks(userId, trackData, source)
+	err = db.SaveUserTrackRelations(userId, dbTracks, source)
 	if err != nil {
-		log.Printf("Error saving %d tracks for user %s from source %s: %v", len(trackData), userId, source, err)
-		return fmt.Errorf("saving %d tracks from %s: %w", len(trackData), source, err)
+		return fmt.Errorf("saving %d user-track relations from %s: %w", len(dbTracks), source, err)
 	}
-	log.Printf("Saved %d tracks for user %s from source %s", len(trackData), userId, source)
+
+	log.Printf("Saved %d tracks for user %s from source %s", len(dbTracks), userId, source)
 	return nil
 }
 
-func savePlaylists(userId string, items any, source string) error {
+func savePlaylists(userId string, items any, source string, tracker *ProcessedTracker) error {
 	playlists, ok := items.([]*spotify.Playlist)
 	if !ok {
 		return errors.New("invalid type: expected []*spotify.Playlist")
@@ -65,29 +66,30 @@ func savePlaylists(userId string, items any, source string) error {
 	}
 
 	log.Printf("Saving %d playlists for user %s from source %s", len(playlists), userId, source)
-	var playlistData []*db.Playlist
-	for _, playlist := range playlists {
-		if playlist != nil && playlist.Id != "" {
-			dbPlaylist := convertSpotifyPlaylistToDBPlaylist(playlist)
-			playlistData = append(playlistData, dbPlaylist)
+	dbPlaylists := convertSpotifyPlaylistsToDBPlaylists(playlists)
+
+	var playlistsToSave []*db.Playlist
+	for _, playlist := range dbPlaylists {
+		if playlist != nil && playlist.PlaylistId != "" && !tracker.CheckAndMark("playlist", playlist.PlaylistId) {
+			playlistsToSave = append(playlistsToSave, playlist)
 		}
 	}
 
-	if len(playlistData) == 0 {
-		log.Printf("No valid playlists found to save for user %s from source %s", userId, source)
-		return nil
+	err := db.SavePlaylists(userId, playlistsToSave, source)
+	if err != nil {
+		return fmt.Errorf("saving %d playlists from %s: %w", len(playlistsToSave), source, err)
 	}
 
-	err := db.SavePlaylists(userId, playlistData, source)
+	err = db.SaveUserPlaylistRelations(userId, dbPlaylists, source)
 	if err != nil {
-		log.Printf("Error saving %d playlists for user %s from source %s: %v", len(playlistData), userId, source, err)
-		return fmt.Errorf("saving %d playlists from %s: %w", len(playlistData), source, err)
+		return fmt.Errorf("saving %d user-playlist relations from %s: %w", len(dbPlaylists), source, err)
 	}
-	log.Printf("Saved %d playlists for user %s from source %s", len(playlistData), userId, source)
+
+	log.Printf("Saved %d playlists for user %s from source %s", len(dbPlaylists), userId, source)
 	return nil
 }
 
-func saveArtists(userId string, items any, source string) error {
+func saveArtists(userId string, items any, source string, tracker *ProcessedTracker) error {
 	artists, ok := items.([]*spotify.Artist)
 	if !ok {
 		return errors.New("invalid type: expected []*spotify.Artist")
@@ -98,29 +100,30 @@ func saveArtists(userId string, items any, source string) error {
 	}
 
 	log.Printf("Saving %d artists for user %s from source %s", len(artists), userId, source)
-	var artistData []*db.Artist
-	for _, artist := range artists {
-		if artist != nil && artist.Id != "" {
-			dbPlaylist := convertSpotifyArtistToDBArtist(artist)
-			artistData = append(artistData, dbPlaylist)
+	dbArtists := convertSpotifyArtistsToDBArtists(artists)
+
+	var artistsToSave []*db.Artist
+	for _, artist := range dbArtists {
+		if artist != nil && artist.ArtistId != "" && !tracker.CheckAndMark("artist", artist.ArtistId) {
+			artistsToSave = append(artistsToSave, artist)
 		}
 	}
 
-	if len(artistData) == 0 {
-		log.Printf("No valid artists found to save for user %s from source %s", userId, source)
-		return nil
+	err := db.SaveArtists(userId, artistsToSave, source)
+	if err != nil {
+		return fmt.Errorf("saving %d artists from %s: %w", len(artistsToSave), source, err)
 	}
 
-	err := db.SaveArtists(userId, artistData, source)
+	err = db.SaveUserArtistRelations(userId, dbArtists, source)
 	if err != nil {
-		log.Printf("Error saving %d artists for user %s from source %s: %v", len(artistData), userId, source, err)
-		return fmt.Errorf("saving %d artists from %s: %w", len(artistData), source, err)
+		return fmt.Errorf("saving %d user-artist relations from %s: %w", len(dbArtists), source, err)
 	}
-	log.Printf("Saved %d artists for user %s from source %s", len(artistData), userId, source)
+
+	log.Printf("Saved %d artists for user %s from source %s", len(dbArtists), userId, source)
 	return nil
 }
 
-func saveAlbums(userId string, items any, source string) error {
+func saveAlbums(userId string, items any, source string, tracker *ProcessedTracker) error {
 	albums, ok := items.([]*spotify.Album)
 	if !ok {
 		return errors.New("invalid type: expected []*spotify.Album")
@@ -131,24 +134,25 @@ func saveAlbums(userId string, items any, source string) error {
 	}
 
 	log.Printf("Saving %d albums for user %s from source %s", len(albums), userId, source)
-	var albumData []*db.Album
-	for _, album := range albums {
-		if album != nil && album.Id != "" {
-			dbAlbum := convertSpotifyAlbumToDBAlbum(album)
-			albumData = append(albumData, dbAlbum)
+	dbAlbums := convertSpotifyAlbumsToDBAlbums(albums)
+
+	var albumsToSave []*db.Album
+	for _, album := range dbAlbums {
+		if album != nil && album.AlbumId != "" && !tracker.CheckAndMark("album", album.AlbumId) {
+			albumsToSave = append(albumsToSave, album)
 		}
 	}
 
-	if len(albumData) == 0 {
-		log.Printf("No valid albums found to save for user %s from source %s", userId, source)
-		return nil
+	err := db.SaveAlbums(userId, albumsToSave, source)
+	if err != nil {
+		return fmt.Errorf("saving %d albums from %s: %w", len(albumsToSave), source, err)
 	}
 
-	err := db.SaveAlbums(userId, albumData, source)
+	err = db.SaveUserAlbumRelations(userId, dbAlbums, source)
 	if err != nil {
-		log.Printf("Error saving %d albums for user %s from source %s: %v", len(albumData), userId, source, err)
-		return fmt.Errorf("saving %d albums from %s: %w", len(albumData), source, err)
+		return fmt.Errorf("saving %d user-album relations from %s: %w", len(dbAlbums), source, err)
 	}
-	log.Printf("Saved %d albums for user %s from source %s", len(albumData), userId, source)
+
+	log.Printf("Saved %d albums for user %s from source %s", len(dbAlbums), userId, source)
 	return nil
 }

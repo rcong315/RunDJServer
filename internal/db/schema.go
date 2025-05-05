@@ -94,6 +94,7 @@ type UserAlbumRelation struct {
 }
 
 type TrackPlaylistRelation struct {
-	TrackId    string `json:"track_id"`
-	PlaylistId string `json:"playlist_id"`
+	TrackId    string   `json:"track_id"`
+	PlaylistId string   `json:"playlist_id"`
+	Sources    []string `json:"sources"`
 }
