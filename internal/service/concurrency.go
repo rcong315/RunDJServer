@@ -80,19 +80,21 @@ func (wp *WorkerPool) Stop() {
 // --- Processed Item Tracker (for Deduplication) ---
 
 type ProcessedTracker struct {
-	mu               sync.Mutex
-	processedTracks  map[string]struct{}
-	processedArtists map[string]struct{}
-	processedAlbums  map[string]struct{}
-	processedSingles map[string]struct{}
+	mu                 sync.Mutex
+	processedTracks    map[string]struct{}
+	processedPlaylists map[string]struct{}
+	processedArtists   map[string]struct{}
+	processedAlbums    map[string]struct{}
+	processedSingles   map[string]struct{}
 }
 
 func NewProcessedTracker() *ProcessedTracker {
 	return &ProcessedTracker{
-		processedTracks:  make(map[string]struct{}),
-		processedArtists: make(map[string]struct{}),
-		processedAlbums:  make(map[string]struct{}),
-		processedSingles: make(map[string]struct{}),
+		processedTracks:     make(map[string]struct{}),
+		proccessedPlaylists: make(map[string]struct{}),
+		processedArtists:    make(map[string]struct{}),
+		processedAlbums:     make(map[string]struct{}),
+		processedSingles:    make(map[string]struct{}),
 	}
 }
 
@@ -105,6 +107,8 @@ func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
 	switch itemType {
 	case "track":
 		targetMap = pt.processedTracks
+	case "playlist":
+		targetMap = pt.processedPlaylists
 	case "artist":
 		targetMap = pt.processedArtists
 	case "album":
