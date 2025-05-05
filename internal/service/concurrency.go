@@ -90,11 +90,11 @@ type ProcessedTracker struct {
 
 func NewProcessedTracker() *ProcessedTracker {
 	return &ProcessedTracker{
-		processedTracks:     make(map[string]struct{}),
-		proccessedPlaylists: make(map[string]struct{}),
-		processedArtists:    make(map[string]struct{}),
-		processedAlbums:     make(map[string]struct{}),
-		processedSingles:    make(map[string]struct{}),
+		processedTracks:    make(map[string]struct{}),
+		processedPlaylists: make(map[string]struct{}),
+		processedArtists:   make(map[string]struct{}),
+		processedAlbums:    make(map[string]struct{}),
+		processedSingles:   make(map[string]struct{}),
 	}
 }
 
