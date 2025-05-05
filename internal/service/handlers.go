@@ -235,7 +235,8 @@ func CreatePlaylistHandler(c *gin.Context) {
 	min := bpm - 1.5
 	max := bpm + 1.5
 
-	sources := c.QueryArray("sources")
+	sourcesStr := c.Query("sources")
+	sources := strings.Split(sourcesStr, ",")
 
 	tracks, err := db.GetTracksByBPM(userId, min, max, sources)
 	if err != nil {
