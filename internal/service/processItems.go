@@ -185,7 +185,7 @@ func processPlaylistTracks(userId string, token string, playlistId string, sourc
 func processAll(token string, userId string) {
 	log.Printf("Starting data processing for user %s", userId)
 
-	numWorkers := 250      // Adjust based on resources and API limits
+	numWorkers := 10       // Adjust based on resources and API limits
 	jobQueueSize := 100000 // Adjust based on expected number of jobs
 
 	pool := NewWorkerPool(numWorkers, jobQueueSize)
@@ -248,4 +248,6 @@ func processAll(token string, userId string) {
 	} else {
 		log.Printf("Finished processing for user %s with 0 errors", userId)
 	}
+
+	// TODO: fix deadlock issue
 }

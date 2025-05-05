@@ -254,8 +254,8 @@ func SaveTrackPlaylistRelations(playlistId string, tracks []*Track, source strin
 	return nil
 }
 
-func GetTracksByBPM(userId string, min float64, max float64) ([]string, error) {
-	rows, err := executeSelect("selectTracksByBPM", userId, min, max)
+func GetTracksByBPM(userId string, min float64, max float64, sources []string) ([]string, error) {
+	rows, err := executeSelect("selectTracksByBPM", userId, min, max, sources)
 	if err != nil {
 		return nil, fmt.Errorf("error executing query: %v", err)
 	}

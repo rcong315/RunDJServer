@@ -273,7 +273,6 @@ func (j *FetchAndProcessAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.Wa
 	log.Printf("Job: Getting tracks from album: %s", albumId)
 	albumTracks, err := spotify.GetAlbumsTracks(albumId)
 	if err != nil {
-		log.Printf("Error getting tracks from album %s: %v", albumId, err)
 		return fmt.Errorf("getting tracks for album %s: %w", albumId, err)
 	}
 
@@ -282,12 +281,10 @@ func (j *FetchAndProcessAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.Wa
 		return nil
 	}
 
-	log.Printf("Job: Submitting processing for %d tracks from album %s", len(albumTracks), albumId)
-	pool.Submit(&FetchAndProcessAlbumTracksJob{
-		UserID:  j.UserID,
-		AlbumID: albumId,
-		Source:  j.Source + "_singles",
-	}, jobWg)
+	err = saveTracks(j.UserID, albumTracks, j.Source, processedTracker)
+	if err != nil {
+		return fmt.Errorf("saving tracks for album %s: %w", albumId, err)
+	}
 
 	return nil
 }

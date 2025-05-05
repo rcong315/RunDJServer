@@ -57,6 +57,13 @@ func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 			artistIds[i] = artist.Id
 		}
 
+		var albumId string
+		if track.Album == nil {
+			albumId = ""
+		} else {
+			albumId = track.Album.Id
+		}
+
 		audioFeatures := track.AudioFeatures
 		var dbAudioFeatures *db.AudioFeatures
 		if track.AudioFeatures == nil {
@@ -83,7 +90,7 @@ func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 			TrackId:          track.Id,
 			Name:             track.Name,
 			ArtistIds:        artistIds,
-			AlbumId:          track.Album.Id,
+			AlbumId:          albumId,
 			Popularity:       track.Popularity,
 			DurationMS:       track.DurationMS,
 			AvailableMarkets: track.AvailableMarkets,

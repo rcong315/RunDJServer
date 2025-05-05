@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,6 +31,7 @@ func ThanksHandler(c *gin.Context) {
 }
 
 func RegisterHandler(c *gin.Context) {
+	// TODO: check when last updated to see if need to run processAll again
 	log.Printf("RegisterHandler called")
 	token := c.Query("access_token")
 	if token == "" {
@@ -176,13 +178,13 @@ func MatchingTracksHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
 		return
 	}
-
 	min := bpm - 1.5
 	max := bpm + 1.5
 
-	// TODO: pass sources
+	sourcesStr := c.Query("sources")
+	sources := strings.Split(sourcesStr, ",")
 
-	tracks, err := db.GetTracksByBPM(userId, min, max)
+	tracks, err := db.GetTracksByBPM(userId, min, max, sources)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Error getting tracks by BPM: " + err.Error(),
@@ -230,11 +232,12 @@ func CreatePlaylistHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
 		return
 	}
-
 	min := bpm - 1.5
 	max := bpm + 1.5
 
-	tracks, err := db.GetTracksByBPM(userId, min, max)
+	sources := c.QueryArray("sources")
+
+	tracks, err := db.GetTracksByBPM(userId, min, max, sources)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Error getting tracks by BPM: " + err.Error(),
