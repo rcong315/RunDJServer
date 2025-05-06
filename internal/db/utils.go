@@ -41,9 +41,6 @@ func initDB() error {
 		return fmt.Errorf("unable to parse connection string: %w", err)
 	}
 
-	// Tell the pool to use the simple protocol by default for Exec/Query calls
-	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-
 	// Use a context with timeout for the initial connection attempt
 	connectCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

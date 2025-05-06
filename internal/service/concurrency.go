@@ -285,6 +285,10 @@ func (j *FetchAndProcessAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.Wa
 		return nil
 	}
 
+	for _, track := range albumTracks {
+		track.Album = &spotify.Album{Id: albumId}
+	}
+
 	err = saveTracks(j.UserID, albumTracks, j.Source, processedTracker)
 	if err != nil {
 		return fmt.Errorf("saving tracks for album %s: %w", albumId, err)

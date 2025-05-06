@@ -242,8 +242,8 @@ func SaveTrackPlaylistRelations(playlistId string, tracks []*Track, source strin
 	err := batchAndSave(tracks, "insertTrackPlaylistRelation", func(item any) []any {
 		track := item.(*Track)
 		return []any{
-			playlistId,
 			track.TrackId,
+			playlistId,
 			[]string{source},
 		}
 	})
