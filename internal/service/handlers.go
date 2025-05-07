@@ -208,7 +208,6 @@ func CreatePlaylistHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
 		return
 	}
-
 	user, err := spotify.GetUser(token)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -256,4 +255,58 @@ func CreatePlaylistHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, playlist)
+}
+
+func FeedbackHandler(c *gin.Context) {
+	log.Printf("FeedbackHandler called")
+	token := c.Query("access_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+		return
+	}
+	user, err := spotify.GetUser(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error getting user: " + err.Error(),
+		})
+		return
+	}
+	userId := user.Id
+	if userId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
+		return
+	}
+
+	songId := c.Query("songId")
+	if songId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing songId"})
+		return
+	}
+
+	feedback := c.Query("feedback")
+	if feedback == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing feedback"})
+		return
+	}
+	var feedbackInt int
+	if feedback == "LIKE" {
+		feedbackInt = 1
+	} else if feedback == "DISLIKE" {
+		feedbackInt = -1
+	} else {
+		feedbackInt = 0
+	}
+
+	err = db.SaveFeedback(userId, songId, feedbackInt)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error saving feedback: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, Message{
+		Status:  "success",
+		Message: "Feedback saved successfully",
+	})
 }

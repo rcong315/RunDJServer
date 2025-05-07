@@ -276,3 +276,26 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 	log.Printf("Found %d tracks for user %s with BPM between %f and %f", len(tracks), userId, min, max)
 	return tracks, nil
 }
+
+func SaveFeedback(userId string, songId string, feedback int) error {
+	sqlQuery, err := getQueryString("insertFeedback")
+	if err != nil {
+		return fmt.Errorf("error getting query string: %v", err)
+	}
+
+	db, err := getDB()
+	if err != nil {
+		return fmt.Errorf("database connection error: %v", err)
+	}
+
+	_, err = db.Exec(context.Background(), sqlQuery,
+		userId,
+		songId,
+		feedback,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating feedback record: %v", err)
+	}
+
+	return nil
+}
