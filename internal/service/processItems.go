@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
@@ -173,12 +174,36 @@ func processPlaylistTracks(userId string, token string, playlistId string, sourc
 	log.Printf("Job: Submitting processing for %d tracks from playlist %s", len(playlistTracks), playlistId)
 	err = saveTracks(userId, playlistTracks, source, tracker)
 	if err != nil {
-		return fmt.Errorf("processing tracks for playlist %s: %w", playlistId, err)
+		log.Printf("Error processing tracks: %v, trying again in 10 seconds, userId: %s, playlistId: %s", err, userId, playlistId)
+		for i := range 3 {
+			time.Sleep(10 * time.Second)
+			log.Printf("Retry %d", i)
+			err = saveTracks(userId, playlistTracks, source, tracker)
+			if err == nil {
+				log.Printf("Retry worked")
+				break
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("saving playlist tracks: %w, userId: %s, playlistId: %s", err, userId, playlistId)
+		}
 	}
 
 	err = saveTrackPlaylistRelations(playlistId, playlistTracks, source)
 	if err != nil {
-		return fmt.Errorf("saving track-playlist relations for playlist %s: %w", playlistId, err)
+		log.Printf("Error processing track-playlist relations: %v, userId: %s, playlistId: %s", err, userId, playlistId)
+		for i := range 3 {
+			time.Sleep(10 * time.Second)
+			log.Printf("Retry %d", i)
+			err = saveTracks(userId, playlistTracks, source, tracker)
+			if err == nil {
+				log.Printf("Retry worked")
+				break
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("saving track-playlist relations: %w, userId: %s, playlistId: %s", err, userId, playlistId)
+		}
 	}
 
 	return nil
