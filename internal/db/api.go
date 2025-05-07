@@ -254,21 +254,22 @@ func SaveTrackPlaylistRelations(playlistId string, tracks []*Track, source strin
 	return nil
 }
 
-func GetTracksByBPM(userId string, min float64, max float64, sources []string) ([]string, error) {
+func GetTracksByBPM(userId string, min float64, max float64, sources []string) (map[string]float64, error) {
 	rows, err := executeSelect("selectTracksByBPM", userId, min, max, sources)
 	if err != nil {
 		return nil, fmt.Errorf("error executing query: %v", err)
 	}
 	defer rows.Close()
 
-	var tracks []string
+	tracks := make(map[string]float64)
 	for rows.Next() {
 		var track string
-		err := rows.Scan(&track)
+		var bpm float64
+		err := rows.Scan(&track, &bpm)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning track: %v", err)
 		}
-		tracks = append(tracks, track)
+		tracks[track] = bpm
 	}
 
 	// TODO: Shuffle tracks

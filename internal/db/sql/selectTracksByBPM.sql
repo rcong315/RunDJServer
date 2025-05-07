@@ -1,4 +1,4 @@
-SELECT track_id
+SELECT track_id, (audio_features->>'tempo')::float AS bpm
 FROM track
     JOIN user_track_relation USING (track_id)
 WHERE user_id = $1

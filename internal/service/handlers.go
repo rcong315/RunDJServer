@@ -244,9 +244,13 @@ func CreatePlaylistHandler(c *gin.Context) {
 		})
 		return
 	}
+	var ids []string
+	for key := range tracks {
+		ids = append(ids, key)
+	}
 
 	log.Printf("Creating playlist for user %s for the bpm range %f-%f with %d songs", userId, min, max, len(tracks))
-	playlist, err := spotify.CreatePlaylist(token, userId, bpm, min, max, tracks)
+	playlist, err := spotify.CreatePlaylist(token, userId, bpm, min, max, ids)
 	if err != nil && playlist.Id == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Error creating playlist: " + err.Error(),
