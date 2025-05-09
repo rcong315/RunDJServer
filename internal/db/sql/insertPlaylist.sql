@@ -14,4 +14,5 @@ SET name = EXCLUDED.name,
     owner_id = EXCLUDED.owner_id,
     public = EXCLUDED.public,
     followers = EXCLUDED.followers,
-    image_urls = EXCLUDED.image_urls;
+    image_urls = EXCLUDED.image_urls,
+    updated_at = NOW();

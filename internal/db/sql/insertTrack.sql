@@ -16,4 +16,5 @@ SET name = EXCLUDED.name,
     popularity = EXCLUDED.popularity,
     duration_ms = EXCLUDED.duration_ms,
     available_markets = EXCLUDED.available_markets,
-    audio_features = EXCLUDED.audio_features;
+    audio_features = EXCLUDED.audio_features,
+    updated_at = NOW();

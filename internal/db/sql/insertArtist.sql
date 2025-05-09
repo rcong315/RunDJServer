@@ -12,4 +12,5 @@ SET name = EXCLUDED.name,
     genres = EXCLUDED.genres,
     popularity = EXCLUDED.popularity,
     followers = EXCLUDED.followers,
-    image_urls = EXCLUDED.image_urls;
+    image_urls = EXCLUDED.image_urls,
+    updated_at = NOW();
