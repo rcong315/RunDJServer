@@ -35,7 +35,7 @@ type AudioFeatures struct {
 }
 
 func SaveTracks(tracks []*Track) error {
-	err := batchAndSave(tracks, "insertTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "track", func(item any, _ int) []any {
 		track := item.(*Track)
 
 		var audioFeaturesJSON string
@@ -69,7 +69,7 @@ func SaveTracks(tracks []*Track) error {
 }
 
 func SaveUserTopTracks(userId string, tracks []*Track) error {
-	err := batchAndSave(tracks, "insertUserTopTrack", func(item any, rank int) []any {
+	err := batchAndSave(tracks, "userTopTrack", func(item any, rank int) []any {
 		track := item.(*Track)
 		return []any{
 			userId,
@@ -85,7 +85,7 @@ func SaveUserTopTracks(userId string, tracks []*Track) error {
 }
 
 func SaveUserSavedTracks(userId string, tracks []*Track) error {
-	err := batchAndSave(tracks, "insertUserSavedTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "userSavedTrack", func(item any, _ int) []any {
 		track := item.(*Track)
 		return []any{
 			userId,
@@ -107,7 +107,7 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 }
 
 func SaveFeedback(userId string, trackId string, feedback int) error {
-	sqlQuery, err := getQueryString("updateFeedback")
+	sqlQuery, err := getQueryString("update", "feedback")
 	if err != nil {
 		return fmt.Errorf("error getting query string: %v", err)
 	}

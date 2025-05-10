@@ -16,7 +16,7 @@ type User struct {
 }
 
 func SaveUser(user *User) error {
-	sqlQuery, err := getQueryString("insertUser")
+	sqlQuery, err := getQueryString("insert", "user")
 	if err != nil {
 		return fmt.Errorf("error getting query string: %v", err)
 	}

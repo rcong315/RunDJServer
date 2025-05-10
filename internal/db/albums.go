@@ -18,7 +18,7 @@ type Album struct {
 }
 
 func SaveAlbums(albums []*Album) error {
-	err := batchAndSave(albums, "insertAlbum", func(item any, _ int) []any {
+	err := batchAndSave(albums, "album", func(item any, _ int) []any {
 		album := item.(*Album)
 		return []any{
 			album.AlbumId,
@@ -41,7 +41,7 @@ func SaveAlbums(albums []*Album) error {
 }
 
 func SaveUserSavedAlbums(userId string, albums []*Album) error {
-	err := batchAndSave(albums, "insertUserSavedAlbum", func(item any, _ int) []any {
+	err := batchAndSave(albums, "userSavedAlbum", func(item any, _ int) []any {
 		album := item.(*Album)
 		return []any{
 			userId,
@@ -57,7 +57,7 @@ func SaveUserSavedAlbums(userId string, albums []*Album) error {
 }
 
 func SaveAlbumTracks(albumId string, tracks []*Track) error {
-	err := batchAndSave(tracks, "insertAlbumTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "albumTrack", func(item any, _ int) []any {
 		track := item.(*Track)
 		return []any{
 			albumId,

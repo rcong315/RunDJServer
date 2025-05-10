@@ -21,7 +21,7 @@ var (
 	initError error
 )
 
-//go:embed sql/*.sql
+//go:embed sql/*/*.sql
 var sqlFiles embed.FS // Variable to hold embedded SQL files
 const BatchSize = 100
 
@@ -88,7 +88,7 @@ func processBatchResults(br pgx.BatchResults, count int) error {
 }
 
 func batchAndSave(items any, queryFilename string, paramConverter func(item any, index int) []any) error {
-	sqlQuery, err := getQueryString(queryFilename)
+	sqlQuery, err := getQueryString("insert", queryFilename)
 	if err != nil {
 		return fmt.Errorf("failed to get SQL query string: %w", err)
 	}
@@ -157,7 +157,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any,
 }
 
 func executeSelect(queryFilename string, args ...any) (pgx.Rows, error) {
-	sqlQuery, err := getQueryString(queryFilename)
+	sqlQuery, err := getQueryString("select", queryFilename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SQL query string: %w", err)
 	}
@@ -175,9 +175,9 @@ func executeSelect(queryFilename string, args ...any) (pgx.Rows, error) {
 	return rows, nil
 }
 
-func getQueryString(queryFilename string) (string, error) {
-	sqlFilePathInEmbedFS := filepath.Join("sql", queryFilename+".sql") // Path *inside* the embed FS
-	sqlBytes, err := sqlFiles.ReadFile(sqlFilePathInEmbedFS)           // Read from the embed.FS variable
+func getQueryString(queryType string, queryFilename string) (string, error) {
+	sqlFilePathInEmbedFS := filepath.Join("sql", filepath.Join(queryType, queryFilename+".sql"))
+	sqlBytes, err := sqlFiles.ReadFile(sqlFilePathInEmbedFS)
 	if err != nil {
 		return "", fmt.Errorf("failed to read embedded SQL file %q: %w", sqlFilePathInEmbedFS, err)
 	}

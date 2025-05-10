@@ -14,7 +14,7 @@ type Artist struct {
 }
 
 func SaveArtists(artists []*Artist) error {
-	err := batchAndSave(artists, "insertArtist", func(item any, _ int) []any {
+	err := batchAndSave(artists, "artist", func(item any, _ int) []any {
 		artist := item.(*Artist)
 		return []any{
 			artist.ArtistId,
@@ -33,7 +33,7 @@ func SaveArtists(artists []*Artist) error {
 }
 
 func SaveUserTopArtists(userId string, artists []*Artist) error {
-	err := batchAndSave(artists, "insertUserTopArtist", func(item any, rank int) []any {
+	err := batchAndSave(artists, "userTopArtist", func(item any, rank int) []any {
 		artist := item.(*Artist)
 		return []any{
 			userId,
@@ -49,7 +49,7 @@ func SaveUserTopArtists(userId string, artists []*Artist) error {
 }
 
 func SaveUserFollowedArtists(userId string, artists []*Artist) error {
-	err := batchAndSave(artists, "insertUserFollowedArtist", func(item any, _ int) []any {
+	err := batchAndSave(artists, "userFollowedArtist", func(item any, _ int) []any {
 		artist := item.(*Artist)
 		return []any{
 			userId,
@@ -64,7 +64,7 @@ func SaveUserFollowedArtists(userId string, artists []*Artist) error {
 }
 
 func SaveArtistTopTracks(artistId string, tracks []*Track) error {
-	err := batchAndSave(tracks, "insertArtistTopTrack", func(item any, rank int) []any {
+	err := batchAndSave(tracks, "artistTopTrack", func(item any, rank int) []any {
 		track := item.(*Track)
 		return []any{
 			artistId,
@@ -80,7 +80,7 @@ func SaveArtistTopTracks(artistId string, tracks []*Track) error {
 }
 
 func SaveArtistAlbums(artistId string, albums []*Album) error {
-	err := batchAndSave(albums, "insertArtistAlbum", func(item any, _ int) []any {
+	err := batchAndSave(albums, "artistAlbum", func(item any, _ int) []any {
 		album := item.(*Album)
 		return []any{
 			artistId,

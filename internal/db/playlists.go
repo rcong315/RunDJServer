@@ -16,7 +16,7 @@ type Playlist struct {
 
 // TODO: Delete deleted playlists
 func SavePlaylists(playlists []*Playlist) error {
-	err := batchAndSave(playlists, "insertPlaylist", func(item any, _ int) []any {
+	err := batchAndSave(playlists, "playlist", func(item any, _ int) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			playlist.PlaylistId,
@@ -36,7 +36,7 @@ func SavePlaylists(playlists []*Playlist) error {
 }
 
 func SaveUserPlaylists(userId string, playlists []*Playlist) error {
-	err := batchAndSave(playlists, "insertUserPlaylist", func(item any, _ int) []any {
+	err := batchAndSave(playlists, "userPlaylist", func(item any, _ int) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			userId,
@@ -51,7 +51,7 @@ func SaveUserPlaylists(userId string, playlists []*Playlist) error {
 }
 
 func SavePlaylistTracks(playlistId string, tracks []*Track) error {
-	err := batchAndSave(tracks, "insertPlaylistTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "playlistTrack", func(item any, _ int) []any {
 		track := item.(*Track)
 		return []any{
 			playlistId,
