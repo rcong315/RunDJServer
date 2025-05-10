@@ -2,15 +2,21 @@ package db
 
 import (
 	"fmt"
-	"log"
 )
 
-func SavePlaylists(userId string, playlists []*Playlist, source string) error {
-	if len(playlists) == 0 {
-		return nil
-	}
+type Playlist struct {
+	PlaylistId  string   `json:"playlist_id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	OwnerId     string   `json:"owner_id"`
+	Public      bool     `json:"public"`
+	Followers   int      `json:"followers"`
+	ImageURLs   []string `json:"image_urls"`
+}
 
-	err := batchAndSave(playlists, "insertPlaylist", func(item any) []any {
+// TODO: Delete deleted playlists
+func SavePlaylists(playlists []*Playlist) error {
+	err := batchAndSave(playlists, "insertPlaylist", func(item any, _ int) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			playlist.PlaylistId,
@@ -25,22 +31,16 @@ func SavePlaylists(userId string, playlists []*Playlist, source string) error {
 	if err != nil {
 		return fmt.Errorf("error saving playlists: %v", err)
 	}
-	log.Printf("Saved %d playlists for user %s", len(playlists), userId)
 
 	return nil
 }
 
 func SaveUserPlaylists(userId string, playlists []*Playlist) error {
-	if len(playlists) == 0 {
-		return nil
-	}
-
-	err := batchAndSave(playlists, "insertUserPlaylist", func(item any) []any {
+	err := batchAndSave(playlists, "insertUserPlaylist", func(item any, _ int) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			userId,
 			playlist.PlaylistId,
-			0,
 		}
 	})
 	if err != nil {
@@ -51,16 +51,11 @@ func SaveUserPlaylists(userId string, playlists []*Playlist) error {
 }
 
 func SavePlaylistTracks(playlistId string, tracks []*Track) error {
-	if len(tracks) == 0 {
-		return nil
-	}
-
-	err := batchAndSave(tracks, "insertPlaylistTrack", func(item any) []any {
+	err := batchAndSave(tracks, "insertPlaylistTrack", func(item any, _ int) []any {
 		track := item.(*Track)
 		return []any{
 			playlistId,
 			track.TrackId,
-			0,
 		}
 	})
 	if err != nil {

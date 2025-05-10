@@ -6,9 +6,10 @@ INSERT INTO "track" (
         popularity,
         duration_ms,
         available_markets,
-        audio_features
+        audio_features,
+        bpm
     )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (track_id) DO
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (track_id) DO
 UPDATE
 SET name = EXCLUDED.name,
     artist_ids = EXCLUDED.artist_ids,

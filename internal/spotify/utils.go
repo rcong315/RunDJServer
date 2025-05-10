@@ -25,6 +25,20 @@ const (
 	maxRetries    = 3
 )
 
+var retryLimits = []int{20, 10, 5}
+
+type Image struct {
+	URL string `json:"url"`
+}
+
+type Config struct {
+	ClientId     string
+	ClientSecret string
+	RedirectURI  string
+	FrontendURI  string
+	Port         string
+}
+
 func GetConfig() (*Config, error) {
 	configOnce.Do(func() {
 		config, configErr = loadConfig()
@@ -33,19 +47,14 @@ func GetConfig() (*Config, error) {
 }
 
 func loadConfig() (*Config, error) {
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Println("Warning: .env file not found. Using system environment variables.")
-	// }
-
 	config := &Config{
-		ClientID:     os.Getenv("SPOTIFY_CLIENT_ID"),
+		ClientId:     os.Getenv("SPOTIFY_CLIENT_ID"),
 		ClientSecret: os.Getenv("SPOTIFY_CLIENT_SECRET"),
 		RedirectURI:  os.Getenv("REDIRECT_URI"),
 		Port:         os.Getenv("PORT"),
 	}
 
-	if config.ClientID == "" || config.ClientSecret == "" {
+	if config.ClientId == "" || config.ClientSecret == "" {
 		return nil, fmt.Errorf("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set")
 	}
 

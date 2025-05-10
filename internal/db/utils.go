@@ -23,7 +23,7 @@ var (
 
 //go:embed sql/*.sql
 var sqlFiles embed.FS // Variable to hold embedded SQL files
-const BatchSize = 50
+const BatchSize = 100
 
 func initDB() error {
 	dbHost := os.Getenv("DB_HOST")
@@ -87,7 +87,7 @@ func processBatchResults(br pgx.BatchResults, count int) error {
 	return br.Close()
 }
 
-func batchAndSave(items any, queryFilename string, paramConverter func(item any) []any) error {
+func batchAndSave(items any, queryFilename string, paramConverter func(item any, index int) []any) error {
 	sqlQuery, err := getQueryString(queryFilename)
 	if err != nil {
 		return fmt.Errorf("failed to get SQL query string: %w", err)
@@ -117,7 +117,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 	sliceLen := slice.Len()
 	for i := range sliceLen { // Corrected loop iteration
 		item := slice.Index(i).Interface()
-		params := paramConverter(item)
+		params := paramConverter(item, i+1)
 
 		// Use the query read from the file
 		batch.Queue(sqlQuery, params...)

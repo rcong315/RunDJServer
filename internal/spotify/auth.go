@@ -19,6 +19,26 @@ const (
 	spotifyTokenURL = "https://accounts.spotify.com/api/token"
 )
 
+type TokenRequest struct {
+	Code string `json:"code" form:"code"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type TokenResponse struct {
+	Token        string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	Scope        string `json:"scope"`
+}
+
 func TokenHandler(c *gin.Context) {
 	log.Printf("TokenHandler: Processing request from %s", c.ClientIP())
 
@@ -46,7 +66,7 @@ func TokenHandler(c *gin.Context) {
 	data.Set("grant_type", "authorization_code")
 
 	// Make request to Spotify token API
-	tokenResponse, err := makeTokenRequest(config, data)
+	tokenResponse, err := makeTokenRequest(config.ClientId, config.ClientSecret, data)
 	if err != nil {
 		log.Printf("Token exchange error: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get token"})
@@ -122,7 +142,7 @@ func RefreshHandler(c *gin.Context) {
 	data.Set("grant_type", "refresh_token")
 
 	// Make request to Spotify token API
-	tokenResponse, err := makeTokenRequest(config, data)
+	tokenResponse, err := makeTokenRequest(config.ClientId, config.ClientSecret, data)
 	if err != nil {
 		log.Printf("Token refresh error: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: fmt.Sprintf("Failed to refresh token: %v", err)})
@@ -138,9 +158,9 @@ func RefreshHandler(c *gin.Context) {
 }
 
 // makeTokenRequest sends a request to the Spotify token API
-func makeTokenRequest(config *Config, data url.Values) (*TokenResponse, error) {
+func makeTokenRequest(clientId string, clientSecret string, data url.Values) (*TokenResponse, error) {
 	// Create authorization header
-	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(config.ClientID+":"+config.ClientSecret))
+	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(clientId+":"+clientSecret))
 
 	// Create request
 	req, err := http.NewRequest("POST", spotifyTokenURL, bytes.NewBufferString(data.Encode()))

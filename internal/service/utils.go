@@ -43,8 +43,6 @@ func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 	}
 }
 
-// TODO: Combine spotify and db types
-
 func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 	var dbTracks []*db.Track
 	for _, track := range tracks {
@@ -188,18 +186,4 @@ func convertSpotifyAlbumsToDBAlbums(albums []*spotify.Album) []*db.Album {
 	}
 
 	return dbAlbums
-}
-
-func removeDuplicateArtists(artists []*spotify.Artist) []*spotify.Artist {
-	encounteredIDs := make(map[string]struct{}) // Use the type of your ID field (e.g., string, int)
-	result := []*spotify.Artist{}               // Initialize the slice for unique items
-
-	for _, artist := range artists {
-		if _, seen := encounteredIDs[artist.Id]; !seen {
-			encounteredIDs[artist.Id] = struct{}{}
-			result = append(result, artist)
-		}
-	}
-
-	return result
 }
