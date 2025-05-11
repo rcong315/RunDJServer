@@ -46,7 +46,6 @@ func SaveUserSavedAlbums(userId string, albums []*Album) error {
 		return []any{
 			userId,
 			album.AlbumId,
-			0,
 		}
 	})
 	if err != nil {

@@ -100,10 +100,51 @@ func SaveUserSavedTracks(userId string, tracks []*Track) error {
 }
 
 func GetTracksByBPM(userId string, min float64, max float64, sources []string) (map[string]float64, error) {
+	tracks := make(map[string]float64)
+	for _, source := range sources {
+		var sqlFileName string
+		if source == "top_tracks" {
+			sqlFileName = "topTracksByBPM"
+		} else if source == "saved_tracks" {
+			sqlFileName = "savedTracksByBPM"
+		} else if source == "playlists" {
+			sqlFileName = "playlistsTracksByBPM"
+		} else if source == "top_artists_top_tracks" {
+			sqlFileName = "topArtistsTopTracksByBPM"
+		} else if source == "top_artists_albums" {
+			sqlFileName = "topArtistsAlbumsByBPM"
+		} else if source == "top_artists_singles" {
+			sqlFileName = "topArtistsSinglesByBPM"
+		} else if source == "followed_artists_top_tracks" {
+			sqlFileName = "followedArtistsTopTracksByBPM"
+		} else if source == "followed_artists_albums" {
+			sqlFileName = "followedArtistsAlbumsByBPM"
+		} else if source == "followed_artists_singles" {
+			sqlFileName = "followedArtistsSinglesByBPM"
+		} else if source == "saved_albums" {
+			sqlFileName = "savedAlbumsByBPM"
+		} else {
+			continue
+		}
 
-	// TODO: Shuffle tracks
+		rows, err := executeSelect(sqlFileName, userId, min, max)
+		if err != nil {
+			return nil, fmt.Errorf("error executing select: %v", err)
+		}
+		defer rows.Close()
 
-	return nil, nil
+		for rows.Next() {
+			var track string
+			var bpm float64
+			err := rows.Scan(&track, &bpm)
+			if err != nil {
+				return nil, fmt.Errorf("error scanning track: %v", err)
+			}
+			tracks[track] = bpm
+		}
+	}
+
+	return tracks, nil
 }
 
 func SaveFeedback(userId string, trackId string, feedback int) error {
