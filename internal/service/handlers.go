@@ -281,7 +281,7 @@ func FeedbackHandler(c *gin.Context) {
 		return
 	}
 
-	songId := c.Query("songId")
+	songId := c.Param("songId")
 	if songId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing songId"})
 		return

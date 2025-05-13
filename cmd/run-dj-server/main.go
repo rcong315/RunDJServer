@@ -33,7 +33,7 @@ func main() {
 	router.GET("/api/songs/recommendations", service.RecommendationsHandler)
 	router.GET("/api/songs/bpm/:bpm", service.MatchingTracksHandler)
 
-	router.POST("/api/song/:id/feedback", service.FeedbackHandler)
+	router.POST("/api/song/:songId/feedback", service.FeedbackHandler)
 
 	router.POST("/api/playlist/bpm/:bpm", service.CreatePlaylistHandler)
 

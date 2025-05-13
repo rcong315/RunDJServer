@@ -101,33 +101,21 @@ func SaveUserSavedTracks(userId string, tracks []*Track) error {
 
 func GetTracksByBPM(userId string, min float64, max float64, sources []string) (map[string]float64, error) {
 	tracks := make(map[string]float64)
-	for _, source := range sources {
-		var sqlFileName string
-		if source == "top_tracks" {
-			sqlFileName = "topTracksByBPM"
-		} else if source == "saved_tracks" {
-			sqlFileName = "savedTracksByBPM"
-		} else if source == "playlists" {
-			sqlFileName = "playlistsTracksByBPM"
-		} else if source == "top_artists_top_tracks" {
-			sqlFileName = "topArtistsTopTracksByBPM"
-		} else if source == "top_artists_albums" {
-			sqlFileName = "topArtistsAlbumsByBPM"
-		} else if source == "top_artists_singles" {
-			sqlFileName = "topArtistsSinglesByBPM"
-		} else if source == "followed_artists_top_tracks" {
-			sqlFileName = "followedArtistsTopTracksByBPM"
-		} else if source == "followed_artists_albums" {
-			sqlFileName = "followedArtistsAlbumsByBPM"
-		} else if source == "followed_artists_singles" {
-			sqlFileName = "followedArtistsSinglesByBPM"
-		} else if source == "saved_albums" {
-			sqlFileName = "savedAlbumsByBPM"
-		} else {
-			continue
-		}
+	sqlFileMap := map[string]string{
+		"top_tracks":                  "topTracksByBPM",
+		"saved_tracks":                "savedTracksByBPM",
+		"playlists":                   "playlistsTracksByBPM",
+		"top_artists_top_tracks":      "topArtistsTopTracksByBPM",
+		"top_artists_albums":          "topArtistsAlbumsByBPM",
+		"top_artists_singles":         "topArtistsSinglesByBPM",
+		"followed_artists_top_tracks": "followedArtistsTopTracksByBPM",
+		"followed_artists_albums":     "followedArtistsAlbumsByBPM",
+		"followed_artists_singles":    "followedArtistsSinglesByBPM",
+		"saved_albums":                "savedAlbumsByBPM",
+	}
 
-		rows, err := executeSelect(sqlFileName, userId, min, max)
+	for _, source := range sources {
+		rows, err := executeSelect(sqlFileMap[source], userId, min, max)
 		if err != nil {
 			return nil, fmt.Errorf("error executing select: %v", err)
 		}
