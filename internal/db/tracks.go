@@ -119,17 +119,19 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 		if err != nil {
 			return nil, fmt.Errorf("error executing select: %v", err)
 		}
-		defer rows.Close()
 
 		for rows.Next() {
 			var track string
 			var bpm float64
 			err := rows.Scan(&track, &bpm)
 			if err != nil {
+				rows.Close()
 				return nil, fmt.Errorf("error scanning track: %v", err)
 			}
 			tracks[track] = bpm
 		}
+
+		rows.Close()
 	}
 
 	return tracks, nil
