@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 var (
@@ -135,7 +135,10 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any,
 			batch = &pgx.Batch{}
 			if err := processBatchResults(br, sentCount); err != nil {
 				// Rollback handled by defer
-				log.Printf("Error processing final batch: %v", item)
+				logger.Error("Error processing batch",
+					zap.Int("batchSizeAttempted", sentCount),
+					zap.Any("problematicItemSample", item), // Log a sample of the item if it's not too large
+					zap.Error(err))
 				return fmt.Errorf("batch execution error (batch size %d): %w", sentCount, err)
 			}
 		}
@@ -146,7 +149,11 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any,
 		sentCount := batch.Len()
 		if err := processBatchResults(br, sentCount); err != nil {
 			// Rollback handled by defer
-			log.Printf("Error processing final batch: %v", batch)
+			// For the batch itself, logging the whole batch might be too verbose.
+			// Logging the error and the size is probably sufficient.
+			logger.Error("Error processing final batch",
+				zap.Int("finalBatchSize", sentCount),
+				zap.Error(err))
 			return fmt.Errorf("final batch execution error (batch size %d): %w", sentCount, err)
 		}
 	}

@@ -2,8 +2,9 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/rcong315/RunDJServer/internal/db"
 	"github.com/rcong315/RunDJServer/internal/spotify"
@@ -96,9 +97,10 @@ func (j *SaveArtistAlbumsJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, t
 }
 
 func processTopArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
-	log.Printf("Getting user's top and followed artists")
+	logger.Info("Getting user's top artists", zap.String("userId", userId))
 	usersTopArtists, err := spotify.GetUsersTopArtists(token)
 	if err != nil {
+		logger.Error("Error getting user's top artists", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting top artists: %w", err)
 	}
 	if len(usersTopArtists) == 0 {
@@ -137,9 +139,10 @@ func processTopArtists(userId string, token string, pool *WorkerPool, tracker *P
 }
 
 func processFollowedArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
-	log.Printf("Getting user's followed artists")
+	logger.Info("Getting user's followed artists", zap.String("userId", userId))
 	usersFollowedArtists, err := spotify.GetUsersFollowedArtists(token)
 	if err != nil {
+		logger.Error("Error getting user's followed artists", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting followed artists: %w", err)
 	}
 	if len(usersFollowedArtists) == 0 {

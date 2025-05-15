@@ -1,9 +1,9 @@
 package service
 
 import (
-	"fmt"
-	"log"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 // TODO: Clean up nested size = 0 checks
@@ -12,7 +12,7 @@ import (
 // TODO: Add release radar playlist
 // TODO: Try seperating files by track, playlist, artist, etc.?
 func processAll(token string, userId string) {
-	log.Printf("Starting data processing for user %s", userId)
+	logger.Info("Starting data processing", zap.String("userId", userId))
 
 	numWorkers := 20       // Adjust based on resources and API limits
 	jobQueueSize := 100000 // Adjust based on expected number of jobs
@@ -56,25 +56,32 @@ func processAll(token string, userId string) {
 	processAndCollectErrors(processFollowedArtists)
 	processAndCollectErrors(processSavedAlbums)
 
-	log.Printf("All initial fetches done, waiting for processing jobs to complete...")
+	logger.Info("All initial fetches done, waiting for processing jobs to complete", zap.String("userId", userId))
 	jobWg.Wait()
 
-	log.Printf("All processing jobs completed, stopping worker pool...")
+	logger.Info("All processing jobs completed, stopping worker pool", zap.String("userId", userId))
 	pool.Stop()
 
 	errorCollectionWg.Wait()
-	log.Printf("Worker pool stopped.")
+	logger.Info("Worker pool stopped", zap.String("userId", userId))
 
 	errorMu.Lock()
 	defer errorMu.Unlock()
 	if len(allErrors) > 0 {
-		finalError := fmt.Errorf("processing failed with %d errors", len(allErrors))
-		for i, e := range allErrors {
-			finalError = fmt.Errorf("%w; [%d]: %v", finalError, i+1, e)
-			log.Printf("Error %d: %v", i+1, e)
-		}
-		log.Printf("Finished processing for user %s with %d errors.", userId, len(allErrors))
+		logger.Error("Data processing finished with errors",
+			zap.String("userId", userId),
+			zap.Int("errorCount", len(allErrors)),
+			zap.Errors("errors", allErrors), // Log all errors if possible, or a summary
+		)
+		// The following loop is for constructing a single error message,
+		// but individual errors are already logged by the worker or collected.
+		// For the final summary log, just the count and perhaps the finalError message is enough.
+		// finalError := fmt.Errorf("processing failed with %d errors", len(allErrors))
+		// for i, e := range allErrors {
+		// 	finalError = fmt.Errorf("%w; [%d]: %v", finalError, i+1, e)
+		// 	// logger.Error("Individual processing error", zap.String("userId", userId), zap.Int("errorNum", i+1), zap.Error(e))
+		// }
 	} else {
-		log.Printf("Finished processing for user %s with 0 errors", userId)
+		logger.Info("Finished data processing successfully", zap.String("userId", userId))
 	}
 }

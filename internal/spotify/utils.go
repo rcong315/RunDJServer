@@ -3,7 +3,6 @@ package spotify
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -140,13 +141,16 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 		if attempt > 0 {
 			// Exponential backoff
 			waitTime := time.Duration(attempt*3) * time.Second
-			log.Printf("Retrying request (attempt %d) after %v", attempt+1, waitTime)
+			logger.Info("Retrying request",
+				zap.Int("attempt", attempt+1),
+				zap.Duration("waitTime", waitTime),
+				zap.String("url", url))
 			time.Sleep(waitTime)
 		}
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			log.Printf("Error creating request: %v", err)
+			logger.Error("Error creating HTTP request", zap.Error(err), zap.String("url", url))
 			lastErr = err
 			continue
 		}
@@ -157,7 +161,7 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Printf("Error making GET request: %v", err)
+			logger.Error("Error making GET request", zap.Error(err), zap.String("url", url))
 			lastErr = err
 			continue
 		}
@@ -165,7 +169,9 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close() // Close the body before processing errors
 
-			log.Printf("Error from Spotify server: %d for URL: %s", resp.StatusCode, url)
+			logger.Error("Error response from Spotify server",
+				zap.Int("statusCode", resp.StatusCode),
+				zap.String("url", url))
 
 			// Handle rate limiting
 			if resp.StatusCode == http.StatusTooManyRequests {
@@ -175,15 +181,19 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 				// 		retryAfter = seconds
 				// 	}
 				// }
-				log.Printf("Rate limited, waiting %d seconds", retryAfter)
+				logger.Warn("Rate limited by Spotify",
+					zap.Int("retryAfterSeconds", retryAfter),
+					zap.String("url", url))
 				time.Sleep(time.Duration(retryAfter) * time.Second)
 				lastErr = fmt.Errorf("rate limited, retrying after %d seconds", retryAfter)
 				continue
 			} else if resp.StatusCode == http.StatusBadGateway {
 				// For 502 errors, try reducing the limit
 				if strings.Contains(url, "limit=") && currentLimit > 10 {
-					currentLimit = retryLimits[attempt]
-					log.Printf("Got a 502 error, reducing limit to %d", currentLimit)
+					currentLimit = retryLimits[attempt] // Be careful with index out of bounds if maxRetries > len(retryLimits)
+					logger.Warn("Got a 502 error, reducing request limit",
+						zap.Int("newLimit", currentLimit),
+						zap.String("url", url))
 					url = modifyURLLimit(url, currentLimit)
 					lastErr = fmt.Errorf("reduced limit to %d after 502 error", currentLimit)
 					continue
@@ -201,7 +211,7 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 			defer resp.Body.Close()
 			var result T
 			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				log.Printf("Error decoding response: %v", err)
+				logger.Error("Error decoding Spotify response body", zap.Error(err), zap.String("url", url))
 				lastErr = err
 				continue
 			}
@@ -211,6 +221,10 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 	}
 
 	// If we get here, all retries failed
+	logger.Error("All Spotify request attempts failed",
+		zap.Int("attempts", maxRetries),
+		zap.String("url", url),
+		zap.Error(lastErr))
 	return nil, fmt.Errorf("all %d attempts failed, last error: %v", maxRetries, lastErr)
 }
 

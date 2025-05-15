@@ -1,8 +1,10 @@
 package service
 
 import (
-	"log"
+	"fmt"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 // --- Worker Pool Setup ---
@@ -42,21 +44,26 @@ func (wp *WorkerPool) Start(jobWg *sync.WaitGroup, tracker *ProcessedTracker) {
 // worker is the function executed by each worker goroutine.
 func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTracker) {
 	defer wp.wg.Done()
-	log.Printf("Worker %d started", id)
+	logger.Info("Worker started", zap.Int("workerId", id))
 	for job := range wp.jobsChan {
-		log.Printf("Worker %d processing job: %T", id, job)
+		jobType := fmt.Sprintf("%T", job)
+		logger.Debug("Worker processing job", zap.Int("workerId", id), zap.String("jobType", jobType))
 		// Pass context down to the job's Execute method
 		err := job.Execute(wp, jobWg, tracker)
 		if err != nil {
 			select {
 			case wp.resultsChan <- err:
+				logger.Error("Worker job execution error", zap.Int("workerId", id), zap.String("jobType", jobType), zap.Error(err))
 			default:
-				log.Printf("Worker %d: Error result channel full, discarding error: %v", id, err)
+				logger.Warn("Worker: Error result channel full, discarding error",
+					zap.Int("workerId", id),
+					zap.String("jobType", jobType),
+					zap.Error(err))
 			}
 		}
 		jobWg.Done() // Decrement job wait group *after* job execution completes
 	}
-	log.Printf("Worker %d finished", id)
+	logger.Info("Worker finished", zap.Int("workerId", id))
 }
 
 // Submit adds a job to the queue.
@@ -112,7 +119,7 @@ func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
 	case "single":
 		targetMap = pt.processedSingles
 	default:
-		log.Printf("WARN: Unknown item type '%s' for processed check", itemType)
+		logger.Warn("Unknown item type for processed check", zap.String("itemType", itemType), zap.String("itemId", id))
 		return false // Don't block unknown types, but log it
 	}
 

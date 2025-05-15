@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+
+	"go.uber.org/zap"
 )
 
 type Playlist struct {
@@ -16,6 +18,12 @@ type Playlist struct {
 
 // TODO: Delete deleted playlists
 func SavePlaylists(playlists []*Playlist) error {
+	if len(playlists) == 0 {
+		logger.Debug("SavePlaylists: No playlists to save.")
+		return nil
+	}
+	logger.Info("Attempting to save playlists", zap.Int("count", len(playlists)))
+
 	err := batchAndSave(playlists, "playlist", func(item any, _ int) []any {
 		playlist := item.(*Playlist)
 		return []any{
@@ -29,13 +37,21 @@ func SavePlaylists(playlists []*Playlist) error {
 		}
 	})
 	if err != nil {
+		logger.Error("Error saving playlists batch", zap.Int("count", len(playlists)), zap.Error(err))
 		return fmt.Errorf("error saving playlists: %v", err)
 	}
 
+	logger.Info("Successfully saved playlists batch", zap.Int("count", len(playlists)))
 	return nil
 }
 
 func SaveUserPlaylists(userId string, playlists []*Playlist) error {
+	if len(playlists) == 0 {
+		logger.Debug("SaveUserPlaylists: No playlists to associate for user.", zap.String("userId", userId))
+		return nil
+	}
+	logger.Info("Attempting to save user-playlist associations", zap.String("userId", userId), zap.Int("count", len(playlists)))
+
 	err := batchAndSave(playlists, "userPlaylist", func(item any, _ int) []any {
 		playlist := item.(*Playlist)
 		return []any{
@@ -44,13 +60,24 @@ func SaveUserPlaylists(userId string, playlists []*Playlist) error {
 		}
 	})
 	if err != nil {
+		logger.Error("Error saving user-playlist associations batch",
+			zap.String("userId", userId),
+			zap.Int("count", len(playlists)),
+			zap.Error(err))
 		return fmt.Errorf("error saving user playlists: %v", err)
 	}
 
+	logger.Info("Successfully saved user-playlist associations batch", zap.String("userId", userId), zap.Int("count", len(playlists)))
 	return nil
 }
 
 func SavePlaylistTracks(playlistId string, tracks []*Track) error {
+	if len(tracks) == 0 {
+		logger.Debug("SavePlaylistTracks: No tracks to associate with playlist.", zap.String("playlistId", playlistId))
+		return nil
+	}
+	logger.Info("Attempting to save playlist-track associations", zap.String("playlistId", playlistId), zap.Int("trackCount", len(tracks)))
+
 	err := batchAndSave(tracks, "playlistTrack", func(item any, _ int) []any {
 		track := item.(*Track)
 		return []any{
@@ -59,8 +86,13 @@ func SavePlaylistTracks(playlistId string, tracks []*Track) error {
 		}
 	})
 	if err != nil {
+		logger.Error("Error saving playlist-track associations batch",
+			zap.String("playlistId", playlistId),
+			zap.Int("trackCount", len(tracks)),
+			zap.Error(err))
 		return fmt.Errorf("error saving playlist tracks: %v", err)
 	}
 
+	logger.Info("Successfully saved playlist-track associations batch", zap.String("playlistId", playlistId), zap.Int("trackCount", len(tracks)))
 	return nil
 }

@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 const (
@@ -40,10 +40,12 @@ type TokenResponse struct {
 }
 
 func TokenHandler(c *gin.Context) {
-	log.Printf("TokenHandler: Processing request from %s", c.ClientIP())
+	clientIP := c.ClientIP()
+	logger.Info("TokenHandler: Processing request", zap.String("clientIP", clientIP))
 
 	config, err := GetConfig()
 	if err != nil {
+		logger.Error("TokenHandler: Configuration error", zap.Error(err), zap.String("clientIP", clientIP))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Configuration error: " + err.Error()})
 		return
 	}
@@ -68,23 +70,27 @@ func TokenHandler(c *gin.Context) {
 	// Make request to Spotify token API
 	tokenResponse, err := makeTokenRequest(config.ClientId, config.ClientSecret, data)
 	if err != nil {
-		log.Printf("Token exchange error: %v", err)
+		logger.Error("TokenHandler: Token exchange error", zap.Error(err), zap.String("clientIP", clientIP))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get token"})
 		return
 	}
 
+	logger.Info("TokenHandler: Token exchange successful", zap.String("clientIP", clientIP))
 	c.JSON(http.StatusOK, tokenResponse)
 }
 
 func RefreshHandler(c *gin.Context) {
+	clientIP := c.ClientIP()
+	logger.Info("RefreshHandler: Processing request", zap.String("clientIP", clientIP))
 	config, err := GetConfig()
 	if err != nil {
+		logger.Error("RefreshHandler: Configuration error", zap.Error(err), zap.String("clientIP", clientIP))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Configuration error: " + err.Error()})
 		return
 	}
 
 	contentType := c.GetHeader("Content-Type")
-	log.Printf("Content-Type: %s", contentType)
+	logger.Debug("RefreshHandler: Request content type", zap.String("contentType", contentType), zap.String("clientIP", clientIP))
 
 	// Get refresh token directly from form data first
 	refreshToken := c.PostForm("refresh_token")
@@ -93,14 +99,14 @@ func RefreshHandler(c *gin.Context) {
 	if refreshToken == "" {
 		bodyBytes, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Printf("Error reading request body: %v", err)
+			logger.Error("RefreshHandler: Error reading request body", zap.Error(err), zap.String("clientIP", clientIP))
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Could not read request body"})
 			return
 		}
 
 		// Log the raw body for debugging
 		bodyStr := string(bodyBytes)
-		log.Printf("Raw request body: %s", bodyStr)
+		logger.Debug("RefreshHandler: Raw request body", zap.String("body", bodyStr), zap.String("clientIP", clientIP))
 
 		// Restore the body for later use
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
@@ -108,10 +114,12 @@ func RefreshHandler(c *gin.Context) {
 		// Try to parse the body as form data
 		formValues, err := url.ParseQuery(bodyStr)
 		if err != nil {
-			log.Printf("Error parsing form data: %v", err)
+			logger.Warn("RefreshHandler: Error parsing form data from body", zap.Error(err), zap.String("clientIP", clientIP))
 		} else {
 			refreshToken = formValues.Get("refresh_token")
-			log.Printf("Found refresh_token in parsed form: %s", refreshToken)
+			if refreshToken != "" {
+				logger.Info("RefreshHandler: Found refresh_token in parsed form data from body", zap.String("clientIP", clientIP))
+			}
 		}
 
 		// As a fallback, try to search for the refresh token in the body string
@@ -125,13 +133,16 @@ func RefreshHandler(c *gin.Context) {
 				} else {
 					refreshToken = tokenPart
 				}
-				log.Printf("Extracted refresh_token from body: %s", refreshToken)
+				logger.Info("RefreshHandler: Extracted refresh_token from raw body string", zap.String("clientIP", clientIP))
 			}
 		}
+	} else {
+		logger.Info("RefreshHandler: Found refresh_token in direct PostForm", zap.String("clientIP", clientIP))
 	}
 
 	// Check if we have a refresh token
 	if refreshToken == "" {
+		logger.Error("RefreshHandler: Refresh token is required but not found", zap.String("clientIP", clientIP))
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Refresh token is required"})
 		return
 	}
@@ -144,7 +155,7 @@ func RefreshHandler(c *gin.Context) {
 	// Make request to Spotify token API
 	tokenResponse, err := makeTokenRequest(config.ClientId, config.ClientSecret, data)
 	if err != nil {
-		log.Printf("Token refresh error: %v", err)
+		logger.Error("RefreshHandler: Token refresh error", zap.Error(err), zap.String("clientIP", clientIP))
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: fmt.Sprintf("Failed to refresh token: %v", err)})
 		return
 	}

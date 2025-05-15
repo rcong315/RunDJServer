@@ -2,8 +2,9 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/rcong315/RunDJServer/internal/db"
 	"github.com/rcong315/RunDJServer/internal/spotify"
@@ -46,9 +47,10 @@ func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tr
 }
 
 func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
-	log.Printf("Getting user's saved albums")
+	logger.Info("Getting user's saved albums", zap.String("userId", userId))
 	usersSavedAlbums, err := spotify.GetUsersSavedAlbums(token)
 	if err != nil {
+		logger.Error("Error getting user's saved albums", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting saved albums: %w", err)
 	}
 	if len(usersSavedAlbums) == 0 {
