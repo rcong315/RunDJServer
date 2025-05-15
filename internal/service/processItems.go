@@ -71,16 +71,8 @@ func processAll(token string, userId string) {
 		logger.Error("Data processing finished with errors",
 			zap.String("userId", userId),
 			zap.Int("errorCount", len(allErrors)),
-			zap.Errors("errors", allErrors), // Log all errors if possible, or a summary
+			zap.Errors("errors", allErrors),
 		)
-		// The following loop is for constructing a single error message,
-		// but individual errors are already logged by the worker or collected.
-		// For the final summary log, just the count and perhaps the finalError message is enough.
-		// finalError := fmt.Errorf("processing failed with %d errors", len(allErrors))
-		// for i, e := range allErrors {
-		// 	finalError = fmt.Errorf("%w; [%d]: %v", finalError, i+1, e)
-		// 	// logger.Error("Individual processing error", zap.String("userId", userId), zap.Int("errorNum", i+1), zap.Error(e))
-		// }
 	} else {
 		logger.Info("Finished data processing successfully", zap.String("userId", userId))
 	}

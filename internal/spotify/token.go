@@ -120,8 +120,19 @@ func getSecretToken() (string, error) {
 	// Token is invalid or doesn't exist, need to potentially fetch.
 	// Release read lock before attempting write lock.
 	tokenCache.RUnlock()
+
+	// Safely log token info, handling case where token might be empty or too short
+	tokenInfo := "empty"
+	if len(tokenCache.token) > 0 {
+		if len(tokenCache.token) >= 4 {
+			tokenInfo = "****" + tokenCache.token[len(tokenCache.token)-4:]
+		} else {
+			tokenInfo = "****" + tokenCache.token // Log full token if less than 4 chars
+		}
+	}
+
 	logger.Info("Cached token invalid, missing, or expiring soon. Attempting refresh.",
-		zap.String("currentToken", "****"+tokenCache.token[len(tokenCache.token)-4:]), // Log last 4 chars for identification
+		zap.String("currentToken", tokenInfo), // Safely log token identification
 		zap.Time("currentExpiresAt", tokenCache.expiresAt))
 
 	// --- Slow path: Acquire Write Lock to Update ---
