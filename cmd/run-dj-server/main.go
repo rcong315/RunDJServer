@@ -31,6 +31,8 @@ func main() {
 
 	router := gin.New()
 
+	// TODO: Set trusted proxies
+
 	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
 	router.Use(ginzap.RecoveryWithZap(logger, true))
 
