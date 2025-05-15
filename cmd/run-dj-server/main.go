@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"time"
 
+	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -14,7 +16,7 @@ import (
 
 func main() {
 	logger, _ := zap.NewProduction()
-	defer logger.Sync() // flushes buffer, if any
+	defer logger.Sync()
 
 	if os.Getenv("DEBUG") == "true" {
 		err := godotenv.Load("../../.env")
@@ -23,14 +25,14 @@ func main() {
 		}
 	}
 
-	// Pass logger to service package (example, actual implementation might vary)
 	service.InitializeLogger(logger)
-	// Potentially pass to spotify package if it also needs logging
 	spotify.InitializeLogger(logger)
-	// Pass logger to db package
 	db.InitializeLogger(logger)
 
-	router := gin.Default()
+	router := gin.New()
+
+	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+	router.Use(ginzap.RecoveryWithZap(logger, true))
 
 	router.GET("/", service.HomeHandler)
 	router.GET("/thanks", service.ThanksHandler)
