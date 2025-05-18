@@ -42,7 +42,7 @@ func main() {
 	router.POST("/api/spotify/auth/token", spotify.TokenHandler)
 	router.POST("/api/spotify/auth/refresh", spotify.RefreshHandler)
 
-	router.GET("/api/user/register", service.RegisterHandler)
+	router.POST("/api/user/register", service.RegisterHandler)
 
 	router.GET("/api/songs/preset", service.PresetPlaylistHandler)
 	router.GET("/api/songs/recommendations", service.RecommendationsHandler)
