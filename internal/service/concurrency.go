@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	cmap "github.com/orcaman/concurrent-map"
 	"go.uber.org/zap"
 )
 
@@ -83,30 +84,27 @@ func (wp *WorkerPool) Stop() {
 // --- Processed Item Tracker (for Deduplication) ---
 
 type ProcessedTracker struct {
-	mu                 sync.Mutex
-	processedTracks    map[string]struct{}
-	processedPlaylists map[string]struct{}
-	processedArtists   map[string]struct{}
-	processedAlbums    map[string]struct{}
-	processedSingles   map[string]struct{}
+	processedTracks    cmap.ConcurrentMap
+	processedPlaylists cmap.ConcurrentMap
+	processedArtists   cmap.ConcurrentMap
+	processedAlbums    cmap.ConcurrentMap
+	processedSingles   cmap.ConcurrentMap
 }
 
 func NewProcessedTracker() *ProcessedTracker {
 	return &ProcessedTracker{
-		processedTracks:    make(map[string]struct{}),
-		processedPlaylists: make(map[string]struct{}),
-		processedArtists:   make(map[string]struct{}),
-		processedAlbums:    make(map[string]struct{}),
-		processedSingles:   make(map[string]struct{}),
+		processedTracks:    cmap.New(),
+		processedPlaylists: cmap.New(),
+		processedArtists:   cmap.New(),
+		processedAlbums:    cmap.New(),
+		processedSingles:   cmap.New(),
 	}
 }
 
 // CheckAndMark checks if an ID is processed, marks it if not. Returns true if already processed.
 func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
-	pt.mu.Lock()
-	defer pt.mu.Unlock()
+	var targetMap cmap.ConcurrentMap
 
-	var targetMap map[string]struct{}
 	switch itemType {
 	case "track":
 		targetMap = pt.processedTracks
@@ -120,12 +118,11 @@ func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
 		targetMap = pt.processedSingles
 	default:
 		logger.Warn("Unknown item type for processed check", zap.String("itemType", itemType), zap.String("itemId", id))
-		return false // Don't block unknown types, but log it
+		return false
 	}
 
-	if _, exists := targetMap[id]; exists {
-		return true // Already processed
+	if targetMap.SetIfAbsent(id, struct{}{}) {
+		return false
 	}
-	targetMap[id] = struct{}{} // Mark as processed
-	return false               // Was not processed before
+	return true
 }
