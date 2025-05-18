@@ -7,6 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
+	github.com/orcaman/concurrent-map v1.0.0
 	go.uber.org/zap v1.27.0
 )
 
