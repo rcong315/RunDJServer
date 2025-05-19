@@ -9,6 +9,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type SecretTokenResponse struct {
@@ -32,10 +34,11 @@ const expirationBuffer = 60 * time.Second // Refresh if expires within 60 second
 const retryCooldown = 15 * time.Second
 
 func fetchNewToken() (string, time.Time, error) {
-	fmt.Println("Attempting to fetch a new secret token...")
+	logger.Info("Attempting to fetch a new secret token")
 
 	apiURL := os.Getenv("TOKEN_URL")
 	if apiURL == "" {
+		logger.Error("TOKEN_URL environment variable not set")
 		return "", time.Time{}, errors.New("TOKEN_URL environment variable not set")
 	}
 	url := apiURL + "/token"
@@ -43,22 +46,33 @@ func fetchNewToken() (string, time.Time, error) {
 	client := http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		logger.Error("Failed to create HTTP request for new token", zap.String("url", url), zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to create request for %s: %w", url, err)
 	}
 	req.Header.Add("Accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.Error("Failed to execute request for new token", zap.String("url", url), zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to execute request to %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.Error("Failed to read new token response body",
+			zap.Int("statusCode", resp.StatusCode),
+			zap.String("url", url),
+			zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to read response body (status %d) from %s: %w", resp.StatusCode, url, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Error("Received non-OK status for new token request",
+			zap.Int("statusCode", resp.StatusCode),
+			zap.String("status", http.StatusText(resp.StatusCode)),
+			zap.String("url", url),
+			zap.ByteString("responseBody", bodyBytes))
 		return "", time.Time{}, fmt.Errorf("received non-OK status code %d (%s) from %s: %s",
 			resp.StatusCode, http.StatusText(resp.StatusCode), url, string(bodyBytes))
 	}
@@ -66,18 +80,28 @@ func fetchNewToken() (string, time.Time, error) {
 	var result SecretTokenResponse
 	err = json.Unmarshal(bodyBytes, &result)
 	if err != nil {
+		logger.Error("Failed to unmarshal new token JSON response",
+			zap.String("url", url),
+			zap.ByteString("responseBody", bodyBytes),
+			zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to unmarshal token JSON response from %s: %w. Body: %s", url, err, string(bodyBytes))
 	}
 	if result.Token == "" {
+		logger.Error("Parsed access token is empty in new token response",
+			zap.String("url", url),
+			zap.ByteString("responseBody", bodyBytes))
 		return "", time.Time{}, fmt.Errorf("parsed access token is empty in response from %s. Body: %s", url, string(bodyBytes))
 	}
 	if result.ExpiresMs <= 0 {
+		logger.Error("Invalid expiration timestamp received for new token",
+			zap.Int64("expiresMs", result.ExpiresMs),
+			zap.String("url", url))
 		return "", time.Time{}, fmt.Errorf("invalid expiration timestamp %d received from %s", result.ExpiresMs, url)
 	}
 
 	expirationTime := time.UnixMilli(result.ExpiresMs)
 
-	fmt.Printf("Successfully fetched new token. Expires: %s\n", expirationTime.Format(time.RFC3339))
+	logger.Info("Successfully fetched new secret token", zap.Time("expiresAt", expirationTime))
 	return result.Token, expirationTime, nil
 }
 
@@ -88,7 +112,7 @@ func getSecretToken() (string, error) {
 	tokenCache.RLock()
 	// Check if token exists and is valid (not expired or expiring soon)
 	if tokenCache.token != "" && now.Before(tokenCache.expiresAt.Add(-expirationBuffer)) {
-		fmt.Println("Returning valid token from cache.")
+		logger.Debug("Returning valid token from cache", zap.Time("cachedExpiresAt", tokenCache.expiresAt))
 		token := tokenCache.token // Copy value while holding lock
 		tokenCache.RUnlock()
 		return token, nil
@@ -96,7 +120,20 @@ func getSecretToken() (string, error) {
 	// Token is invalid or doesn't exist, need to potentially fetch.
 	// Release read lock before attempting write lock.
 	tokenCache.RUnlock()
-	fmt.Println("Cached token invalid, missing, or expiring soon.")
+
+	// Safely log token info, handling case where token might be empty or too short
+	tokenInfo := "empty"
+	if len(tokenCache.token) > 0 {
+		if len(tokenCache.token) >= 4 {
+			tokenInfo = "****" + tokenCache.token[len(tokenCache.token)-4:]
+		} else {
+			tokenInfo = "****" + tokenCache.token // Log full token if less than 4 chars
+		}
+	}
+
+	logger.Info("Cached token invalid, missing, or expiring soon. Attempting refresh.",
+		zap.String("currentToken", tokenInfo), // Safely log token identification
+		zap.Time("currentExpiresAt", tokenCache.expiresAt))
 
 	// --- Slow path: Acquire Write Lock to Update ---
 	tokenCache.Lock()
@@ -106,13 +143,16 @@ func getSecretToken() (string, error) {
 	// Another goroutine might have refreshed the token while we waited for the lock.
 	now = time.Now() // Re-check current time
 	if tokenCache.token != "" && now.Before(tokenCache.expiresAt.Add(-expirationBuffer)) {
-		fmt.Println("Token refreshed by another goroutine while waiting for lock; returning cached token.")
+		logger.Info("Token refreshed by another goroutine while waiting for lock; returning cached token.",
+			zap.Time("newCachedExpiresAt", tokenCache.expiresAt))
 		return tokenCache.token, nil // Return the newly cached token
 	}
 
 	// Optional: Prevent rapid-fire retries if the last fetch failed recently
 	if tokenCache.fetchErr != nil && now.Before(tokenCache.lastFetchAttempt.Add(retryCooldown)) {
-		fmt.Printf("Returning previous fetch error due to retry cooldown (last attempt: %s)\n", tokenCache.lastFetchAttempt.Format(time.RFC3339))
+		logger.Warn("Returning previous fetch error due to retry cooldown",
+			zap.Time("lastAttempt", tokenCache.lastFetchAttempt),
+			zap.Error(tokenCache.fetchErr))
 		// Return the specific error from the last failed attempt
 		return "", fmt.Errorf("token refresh failed recently, try again after %v: %w", retryCooldown, tokenCache.fetchErr)
 	}
@@ -123,15 +163,13 @@ func getSecretToken() (string, error) {
 
 	// If fetch failed, store the error and return it. Don't update token/expiry.
 	if err != nil {
-		fmt.Printf("Failed to fetch new token: %v\n", err)
+		logger.Error("Failed to fetch new token during locked refresh", zap.Error(err))
 		tokenCache.fetchErr = err // Store the fetch error
-		// Keep the potentially expired token/expiry info as is? Or clear them?
-		// Let's keep them but return the error.
 		return "", err
 	}
 
 	// --- Success: Update cache ---
-	fmt.Println("Updating token cache with newly fetched token.")
+	logger.Info("Updating token cache with newly fetched token", zap.Time("newExpiresAt", newExpiresAt))
 	tokenCache.token = newToken
 	tokenCache.expiresAt = newExpiresAt
 	tokenCache.fetchErr = nil // Clear any previous error on success

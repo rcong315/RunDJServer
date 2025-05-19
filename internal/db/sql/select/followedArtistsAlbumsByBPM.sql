@@ -1,0 +1,17 @@
+SELECT t.track_id,
+    t.bpm
+FROM "user_followed_artist" ufa
+    JOIN "artist_album" aa ON ufa.artist_id = aa.artist_id
+    JOIN "album_track" atr ON aa.album_id = atr.album_id
+    JOIN "album" a ON aa.album_id = a.album_id
+    JOIN "track" t ON atr.track_id = t.track_id
+WHERE ufa.user_id = $1
+    AND a.album_type = 'album'
+    AND t.bpm BETWEEN $2 AND $3
+    AND NOT EXISTS (
+        SELECT 1
+        FROM "user_track_interaction" uti
+        WHERE uti.track_id = t.track_id
+            AND uti.user_id = ufa.user_id
+            AND uti.feedback < 0
+    );

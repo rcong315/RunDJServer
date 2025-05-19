@@ -14,4 +14,5 @@ SET email = EXCLUDED.email,
     country = EXCLUDED.country,
     followers = EXCLUDED.followers,
     product = EXCLUDED.product,
-    image_urls = EXCLUDED.image_urls;
+    image_urls = EXCLUDED.image_urls,
+    updated_at = NOW();

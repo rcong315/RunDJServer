@@ -20,4 +20,5 @@ SET name = EXCLUDED.name,
     total_tracks = EXCLUDED.total_tracks,
     release_date = EXCLUDED.release_date,
     available_markets = EXCLUDED.available_markets,
-    image_urls = EXCLUDED.image_urls;
+    image_urls = EXCLUDED.image_urls,
+    updated_at = NOW();

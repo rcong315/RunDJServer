@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 var (
@@ -21,9 +21,9 @@ var (
 	initError error
 )
 
-//go:embed sql/*.sql
+//go:embed sql/*/*.sql
 var sqlFiles embed.FS // Variable to hold embedded SQL files
-const BatchSize = 50
+const BatchSize = 100
 
 func initDB() error {
 	dbHost := os.Getenv("DB_HOST")
@@ -40,6 +40,10 @@ func initDB() error {
 	if err != nil {
 		return fmt.Errorf("unable to parse connection string: %w", err)
 	}
+
+	// Configure for PGBouncer compatibility (transaction mode):
+	// Use simple protocol to avoid issues with prepared statement caching.
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	// Use a context with timeout for the initial connection attempt
 	connectCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -87,8 +91,8 @@ func processBatchResults(br pgx.BatchResults, count int) error {
 	return br.Close()
 }
 
-func batchAndSave(items any, queryFilename string, paramConverter func(item any) []any) error {
-	sqlQuery, err := getQueryString(queryFilename)
+func batchAndSave(items any, queryFilename string, paramConverter func(item any, index int) []any) error {
+	sqlQuery, err := getQueryString("insert", queryFilename)
 	if err != nil {
 		return fmt.Errorf("failed to get SQL query string: %w", err)
 	}
@@ -117,7 +121,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 	sliceLen := slice.Len()
 	for i := range sliceLen { // Corrected loop iteration
 		item := slice.Index(i).Interface()
-		params := paramConverter(item)
+		params := paramConverter(item, i+1)
 
 		// Use the query read from the file
 		batch.Queue(sqlQuery, params...)
@@ -131,7 +135,10 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 			batch = &pgx.Batch{}
 			if err := processBatchResults(br, sentCount); err != nil {
 				// Rollback handled by defer
-				log.Printf("Error processing final batch: %v", item)
+				logger.Error("Error processing batch",
+					zap.Int("batchSizeAttempted", sentCount),
+					zap.Any("problematicItemSample", item), // Log a sample of the item if it's not too large
+					zap.Error(err))
 				return fmt.Errorf("batch execution error (batch size %d): %w", sentCount, err)
 			}
 		}
@@ -142,7 +149,11 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 		sentCount := batch.Len()
 		if err := processBatchResults(br, sentCount); err != nil {
 			// Rollback handled by defer
-			log.Printf("Error processing final batch: %v", batch)
+			// For the batch itself, logging the whole batch might be too verbose.
+			// Logging the error and the size is probably sufficient.
+			logger.Error("Error processing final batch",
+				zap.Int("finalBatchSize", sentCount),
+				zap.Error(err))
 			return fmt.Errorf("final batch execution error (batch size %d): %w", sentCount, err)
 		}
 	}
@@ -157,7 +168,7 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 }
 
 func executeSelect(queryFilename string, args ...any) (pgx.Rows, error) {
-	sqlQuery, err := getQueryString(queryFilename)
+	sqlQuery, err := getQueryString("select", queryFilename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SQL query string: %w", err)
 	}
@@ -175,9 +186,9 @@ func executeSelect(queryFilename string, args ...any) (pgx.Rows, error) {
 	return rows, nil
 }
 
-func getQueryString(queryFilename string) (string, error) {
-	sqlFilePathInEmbedFS := filepath.Join("sql", queryFilename+".sql") // Path *inside* the embed FS
-	sqlBytes, err := sqlFiles.ReadFile(sqlFilePathInEmbedFS)           // Read from the embed.FS variable
+func getQueryString(queryType string, queryFilename string) (string, error) {
+	sqlFilePathInEmbedFS := filepath.Join("sql", filepath.Join(queryType, queryFilename+".sql"))
+	sqlBytes, err := sqlFiles.ReadFile(sqlFilePathInEmbedFS)
 	if err != nil {
 		return "", fmt.Errorf("failed to read embedded SQL file %q: %w", sqlFilePathInEmbedFS, err)
 	}
