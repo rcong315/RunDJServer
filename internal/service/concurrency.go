@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	cmap "github.com/orcaman/concurrent-map"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"go.uber.org/zap"
 )
 
@@ -84,26 +84,26 @@ func (wp *WorkerPool) Stop() {
 // --- Processed Item Tracker (for Deduplication) ---
 
 type ProcessedTracker struct {
-	processedTracks    cmap.ConcurrentMap
-	processedPlaylists cmap.ConcurrentMap
-	processedArtists   cmap.ConcurrentMap
-	processedAlbums    cmap.ConcurrentMap
-	processedSingles   cmap.ConcurrentMap
+	processedTracks    cmap.ConcurrentMap[string, struct{}]
+	processedPlaylists cmap.ConcurrentMap[string, struct{}]
+	processedArtists   cmap.ConcurrentMap[string, struct{}]
+	processedAlbums    cmap.ConcurrentMap[string, struct{}]
+	processedSingles   cmap.ConcurrentMap[string, struct{}]
 }
 
 func NewProcessedTracker() *ProcessedTracker {
 	return &ProcessedTracker{
-		processedTracks:    cmap.New(),
-		processedPlaylists: cmap.New(),
-		processedArtists:   cmap.New(),
-		processedAlbums:    cmap.New(),
-		processedSingles:   cmap.New(),
+		processedTracks:    cmap.New[struct{}](),
+		processedPlaylists: cmap.New[struct{}](),
+		processedArtists:   cmap.New[struct{}](),
+		processedAlbums:    cmap.New[struct{}](),
+		processedSingles:   cmap.New[struct{}](),
 	}
 }
 
 // CheckAndMark checks if an ID is processed, marks it if not. Returns true if already processed.
 func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
-	var targetMap cmap.ConcurrentMap
+	var targetMap cmap.ConcurrentMap[string, struct{}]
 
 	switch itemType {
 	case "track":
@@ -121,8 +121,5 @@ func (pt *ProcessedTracker) CheckAndMark(itemType string, id string) bool {
 		return false
 	}
 
-	if targetMap.SetIfAbsent(id, struct{}{}) {
-		return false
-	}
-	return true
+	return !targetMap.SetIfAbsent(id, struct{}{})
 }
