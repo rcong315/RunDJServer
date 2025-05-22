@@ -56,24 +56,32 @@ func processAll(token string, userId string) {
 	processAndCollectErrors(processFollowedArtists)
 	processAndCollectErrors(processSavedAlbums)
 
-	logger.Info("All initial fetches done, waiting for processing jobs to complete", zap.String("userId", userId))
-	jobWg.Wait()
+	// Launch a goroutine to handle graceful shutdown and error reporting
+	// This allows processAll to return immediately after queueing.
+	go func(currentUserId string, currentPool *WorkerPool, currentJobWg *sync.WaitGroup, currentErrorCollectionWg *sync.WaitGroup, currentAllErrors *[]error, currentErrorMu *sync.Mutex) {
+		logger.Info("Background shutdown handler started", zap.String("userId", currentUserId))
 
-	logger.Info("All processing jobs completed, stopping worker pool", zap.String("userId", userId))
-	pool.Stop()
+		currentJobWg.Wait() // Wait for all submitted jobs to complete
+		logger.Info("All processing jobs completed, stopping worker pool", zap.String("userId", currentUserId))
 
-	errorCollectionWg.Wait()
-	logger.Info("Worker pool stopped", zap.String("userId", userId))
+		currentPool.Stop() // Stop the worker pool (closes jobsChan, waits for workers, closes resultsChan)
+		logger.Info("Worker pool stop signal sent", zap.String("userId", currentUserId))
 
-	errorMu.Lock()
-	defer errorMu.Unlock()
-	if len(allErrors) > 0 {
-		logger.Error("Data processing finished with errors",
-			zap.String("userId", userId),
-			zap.Int("errorCount", len(allErrors)),
-			zap.Errors("errors", allErrors),
-		)
-	} else {
-		logger.Info("Finished data processing successfully", zap.String("userId", userId))
-	}
+		currentErrorCollectionWg.Wait() // Wait for the error collection goroutine to finish
+		logger.Info("Error collection finished, worker pool fully stopped", zap.String("userId", currentUserId))
+
+		currentErrorMu.Lock()
+		defer currentErrorMu.Unlock()
+		if len(*currentAllErrors) > 0 {
+			logger.Error("Background data processing finished with errors",
+				zap.String("userId", currentUserId),
+				zap.Int("errorCount", len(*currentAllErrors)),
+				zap.Errors("errors", *currentAllErrors),
+			)
+		} else {
+			logger.Info("Background data processing finished successfully", zap.String("userId", currentUserId))
+		}
+	}(userId, pool, &jobWg, &errorCollectionWg, &allErrors, &errorMu)
+
+	logger.Info("All processing functions queued, processing will continue in the background. processAll is returning.", zap.String("userId", userId))
 }
