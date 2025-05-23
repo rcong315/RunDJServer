@@ -41,7 +41,7 @@ type TokenResponse struct {
 
 func TokenHandler(c *gin.Context) {
 	clientIP := c.ClientIP()
-	logger.Info("TokenHandler: Processing request", zap.String("clientIP", clientIP))
+	logger.Debug("TokenHandler: Processing request", zap.String("clientIP", clientIP))
 
 	config, err := GetConfig()
 	if err != nil {
@@ -75,13 +75,13 @@ func TokenHandler(c *gin.Context) {
 		return
 	}
 
-	logger.Info("TokenHandler: Token exchange successful", zap.String("clientIP", clientIP))
+	logger.Debug("TokenHandler: Token exchange successful", zap.String("clientIP", clientIP))
 	c.JSON(http.StatusOK, tokenResponse)
 }
 
 func RefreshHandler(c *gin.Context) {
 	clientIP := c.ClientIP()
-	logger.Info("RefreshHandler: Processing request", zap.String("clientIP", clientIP))
+	logger.Debug("RefreshHandler: Processing request", zap.String("clientIP", clientIP))
 	config, err := GetConfig()
 	if err != nil {
 		logger.Error("RefreshHandler: Configuration error", zap.Error(err), zap.String("clientIP", clientIP))
@@ -118,7 +118,7 @@ func RefreshHandler(c *gin.Context) {
 		} else {
 			refreshToken = formValues.Get("refresh_token")
 			if refreshToken != "" {
-				logger.Info("RefreshHandler: Found refresh_token in parsed form data from body", zap.String("clientIP", clientIP))
+				logger.Debug("RefreshHandler: Found refresh_token in parsed form data from body", zap.String("clientIP", clientIP))
 			}
 		}
 
@@ -133,11 +133,11 @@ func RefreshHandler(c *gin.Context) {
 				} else {
 					refreshToken = tokenPart
 				}
-				logger.Info("RefreshHandler: Extracted refresh_token from raw body string", zap.String("clientIP", clientIP))
+				logger.Debug("RefreshHandler: Extracted refresh_token from raw body string", zap.String("clientIP", clientIP))
 			}
 		}
 	} else {
-		logger.Info("RefreshHandler: Found refresh_token in direct PostForm", zap.String("clientIP", clientIP))
+		logger.Debug("RefreshHandler: Found refresh_token in direct PostForm", zap.String("clientIP", clientIP))
 	}
 
 	// Check if we have a refresh token

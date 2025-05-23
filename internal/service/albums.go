@@ -47,7 +47,7 @@ func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tr
 }
 
 func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
-	logger.Info("Getting user's saved albums", zap.String("userId", userId))
+	logger.Debug("Getting user's saved albums", zap.String("userId", userId))
 	usersSavedAlbums, err := spotify.GetUsersSavedAlbums(token)
 	if err != nil {
 		logger.Error("Error getting user's saved albums", zap.String("userId", userId), zap.Error(err))

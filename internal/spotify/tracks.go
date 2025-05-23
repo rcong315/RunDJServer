@@ -66,7 +66,7 @@ type AudioFeaturesResponse struct {
 }
 
 func GetUsersTopTracks(token string) ([]*Track, error) {
-	logger.Info("Attempting to get user's top tracks")
+	logger.Debug("Attempting to get user's top tracks")
 	url := fmt.Sprintf("%s/me/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersTopTracksResponse](token, url)
@@ -81,19 +81,19 @@ func GetUsersTopTracks(token string) ([]*Track, error) {
 			allTracks = append(allTracks, &response.Items[i])
 		}
 	}
-	logger.Info("Successfully retrieved initial user's top tracks list", zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved initial user's top tracks list", zap.Int("count", len(allTracks)))
 
 	allTracks, err = getAudioFeatures(allTracks)
 	if err != nil {
 		logger.Error("Error getting audio features for user's top tracks", zap.Int("trackCount", len(allTracks)), zap.Error(err))
 		// Return tracks even if audio features fail for some
 	}
-	logger.Info("Successfully retrieved user's top tracks with audio features", zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved user's top tracks with audio features", zap.Int("count", len(allTracks)))
 	return allTracks, err
 }
 
 func GetUsersSavedTracks(token string) ([]*Track, error) {
-	logger.Info("Attempting to get user's saved tracks")
+	logger.Debug("Attempting to get user's saved tracks")
 	url := fmt.Sprintf("%s/me/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersSavedTracksResponse](token, url)
@@ -108,14 +108,14 @@ func GetUsersSavedTracks(token string) ([]*Track, error) {
 			allTracks = append(allTracks, &response.Items[i].Track)
 		}
 	}
-	logger.Info("Successfully retrieved initial user's saved tracks list", zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved initial user's saved tracks list", zap.Int("count", len(allTracks)))
 
 	allTracks, err = getAudioFeatures(allTracks)
 	if err != nil {
 		logger.Error("Error getting audio features for user's saved tracks", zap.Int("trackCount", len(allTracks)), zap.Error(err))
 		// Return tracks even if audio features fail for some
 	}
-	logger.Info("Successfully retrieved user's saved tracks with audio features", zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved user's saved tracks with audio features", zap.Int("count", len(allTracks)))
 	return allTracks, err
 }
 
@@ -192,7 +192,7 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 }
 
 func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxTempo float64) ([]*Track, error) {
-	logger.Info("Attempting to get recommendations",
+	logger.Debug("Attempting to get recommendations",
 		zap.Strings("seedArtists", seedArtists),
 		zap.Strings("seedGenres", seedGenres),
 		zap.Float64("minTempo", minTempo),
@@ -242,6 +242,6 @@ func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxT
 		logger.Warn("No recommendations data received in response", zap.String("url", url))
 	}
 
-	logger.Info("Successfully retrieved recommendations", zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved recommendations", zap.Int("count", len(allTracks)))
 	return allTracks, nil // Original code returned 'err' which would be nil here if fetchAllResults succeeded.
 }

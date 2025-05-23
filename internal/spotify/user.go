@@ -23,7 +23,7 @@ type WhoAmIResponse struct {
 }
 
 func GetUser(token string) (*User, error) {
-	logger.Info("Attempting to get user details") // Token itself should not be logged
+	logger.Debug("Attempting to get user details") // Token itself should not be logged
 	url := fmt.Sprintf("%s/me", spotifyAPIURL)
 	logger.Debug("Fetching user details from URL", zap.String("url", url))
 
@@ -42,7 +42,7 @@ func GetUser(token string) (*User, error) {
 	}
 
 	user := responses[0]
-	logger.Info("Successfully retrieved user details",
+	logger.Debug("Successfully retrieved user details",
 		zap.String("userId", user.Id),
 		zap.String("displayName", user.DisplayName),
 		zap.String("email", user.Email)) // Be mindful of PII (email)

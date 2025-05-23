@@ -39,7 +39,7 @@ type ArtistsAlbumsResponse struct {
 }
 
 func GetUsersTopArtists(token string) ([]*Artist, error) {
-	logger.Info("Attempting to get user's top artists")
+	logger.Debug("Attempting to get user's top artists")
 	url := fmt.Sprintf("%s/me/top/artists/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersTopArtistsResponse](token, url)
@@ -55,12 +55,12 @@ func GetUsersTopArtists(token string) ([]*Artist, error) {
 		}
 	}
 
-	logger.Info("Successfully retrieved user's top artists", zap.Int("count", len(allArtists)))
+	logger.Debug("Successfully retrieved user's top artists", zap.Int("count", len(allArtists)))
 	return allArtists, nil
 }
 
 func GetUsersFollowedArtists(token string) ([]*Artist, error) {
-	logger.Info("Attempting to get user's followed artists")
+	logger.Debug("Attempting to get user's followed artists")
 	url := fmt.Sprintf("%s/me/following?type=artist&limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersFollowedArtistsResponse](token, url)
@@ -76,12 +76,12 @@ func GetUsersFollowedArtists(token string) ([]*Artist, error) {
 		}
 	}
 
-	logger.Info("Successfully retrieved user's followed artists", zap.Int("count", len(allArtists)))
+	logger.Debug("Successfully retrieved user's followed artists", zap.Int("count", len(allArtists)))
 	return allArtists, nil
 }
 
 func GetArtistsTopTracks(artistId string) ([]*Track, error) {
-	logger.Info("Attempting to get top tracks for artist", zap.String("artistId", artistId))
+	logger.Debug("Attempting to get top tracks for artist", zap.String("artistId", artistId))
 	token, err := getSecretToken()
 	if err != nil {
 		logger.Error("Error getting secret token for GetArtistsTopTracks", zap.String("artistId", artistId), zap.Error(err))
@@ -103,7 +103,7 @@ func GetArtistsTopTracks(artistId string) ([]*Track, error) {
 			allTracks = append(allTracks, &response.Tracks[i])
 		}
 	}
-	logger.Info("Successfully retrieved initial artist top tracks list", zap.String("artistId", artistId), zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved initial artist top tracks list", zap.String("artistId", artistId), zap.Int("count", len(allTracks)))
 
 	allTracks, err = getAudioFeatures(allTracks)
 	if err != nil {
@@ -111,38 +111,38 @@ func GetArtistsTopTracks(artistId string) ([]*Track, error) {
 		// Return tracks even if audio features fail for some
 	}
 
-	logger.Info("Successfully retrieved artist top tracks with audio features", zap.String("artistId", artistId), zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved artist top tracks with audio features", zap.String("artistId", artistId), zap.Int("count", len(allTracks)))
 	return allTracks, err
 }
 
 func GetArtistsAlbumsAndSingles(artistId string) ([]*Album, error) {
-	logger.Info("Attempting to get albums and singles for artist", zap.String("artistId", artistId))
+	logger.Debug("Attempting to get albums and singles for artist", zap.String("artistId", artistId))
 	albumsAndSingles, err := getArtistsAlbums(artistId, "album,single")
 	if err != nil {
 		// Error already logged in getArtistsAlbums
 		return nil, err
 	}
-	logger.Info("Successfully retrieved albums and singles for artist", zap.String("artistId", artistId), zap.Int("count", len(albumsAndSingles)))
+	logger.Debug("Successfully retrieved albums and singles for artist", zap.String("artistId", artistId), zap.Int("count", len(albumsAndSingles)))
 	return albumsAndSingles, nil
 }
 
 func GetArtistsCompilations(artistId string) ([]*Album, error) {
-	logger.Info("Attempting to get compilations for artist", zap.String("artistId", artistId))
+	logger.Debug("Attempting to get compilations for artist", zap.String("artistId", artistId))
 	albums, err := getArtistsAlbums(artistId, "compilation")
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Successfully retrieved compilations for artist", zap.String("artistId", artistId), zap.Int("count", len(albums)))
+	logger.Debug("Successfully retrieved compilations for artist", zap.String("artistId", artistId), zap.Int("count", len(albums)))
 	return albums, nil
 }
 
 func GetArtistsAppearsOn(artistId string) ([]*Album, error) {
-	logger.Info("Attempting to get 'appears on' albums for artist", zap.String("artistId", artistId))
+	logger.Debug("Attempting to get 'appears on' albums for artist", zap.String("artistId", artistId))
 	albums, err := getArtistsAlbums(artistId, "appears_on")
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Successfully retrieved 'appears on' albums for artist", zap.String("artistId", artistId), zap.Int("count", len(albums)))
+	logger.Debug("Successfully retrieved 'appears on' albums for artist", zap.String("artistId", artistId), zap.Int("count", len(albums)))
 	return albums, nil
 }
 

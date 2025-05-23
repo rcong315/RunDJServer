@@ -157,7 +157,7 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 		if attempt > 0 {
 			// Exponential backoff
 			waitTime := time.Duration(attempt*3) * time.Second
-			logger.Info("Retrying request",
+			logger.Debug("Retrying request",
 				zap.Int("attempt", attempt+1),
 				zap.Duration("waitTime", waitTime),
 				zap.String("url", url))

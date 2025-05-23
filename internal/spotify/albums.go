@@ -34,7 +34,7 @@ type AlbumsTracksResponse struct {
 }
 
 func GetUsersSavedAlbums(token string) ([]*Album, error) {
-	logger.Info("Attempting to get user's saved albums")
+	logger.Debug("Attempting to get user's saved albums")
 	url := fmt.Sprintf("%s/me/albums?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersSavedAlbumsResponse](token, url)
@@ -50,12 +50,12 @@ func GetUsersSavedAlbums(token string) ([]*Album, error) {
 		}
 	}
 
-	logger.Info("Successfully retrieved user's saved albums", zap.Int("count", len(allAlbums)))
+	logger.Debug("Successfully retrieved user's saved albums", zap.Int("count", len(allAlbums)))
 	return allAlbums, nil
 }
 
 func GetAlbumsTracks(albumId string) ([]*Track, error) {
-	logger.Info("Attempting to get tracks for album", zap.String("albumId", albumId))
+	logger.Debug("Attempting to get tracks for album", zap.String("albumId", albumId))
 	token, err := getSecretToken()
 	if err != nil {
 		logger.Error("Error getting secret token for GetAlbumsTracks", zap.String("albumId", albumId), zap.Error(err))
@@ -77,7 +77,7 @@ func GetAlbumsTracks(albumId string) ([]*Track, error) {
 			allTracks = append(allTracks, &response.Items[i])
 		}
 	}
-	logger.Info("Successfully retrieved initial album tracks list", zap.String("albumId", albumId), zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved initial album tracks list", zap.String("albumId", albumId), zap.Int("count", len(allTracks)))
 
 	allTracks, err = getAudioFeatures(allTracks)
 	if err != nil {
@@ -85,6 +85,6 @@ func GetAlbumsTracks(albumId string) ([]*Track, error) {
 		return allTracks, err // Return tracks even if audio features fail for some
 	}
 
-	logger.Info("Successfully retrieved album tracks with audio features", zap.String("albumId", albumId), zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved album tracks with audio features", zap.String("albumId", albumId), zap.Int("count", len(allTracks)))
 	return allTracks, nil
 }

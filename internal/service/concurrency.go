@@ -45,7 +45,7 @@ func (wp *WorkerPool) Start(jobWg *sync.WaitGroup, tracker *ProcessedTracker) {
 // worker is the function executed by each worker goroutine.
 func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTracker) {
 	defer wp.wg.Done()
-	logger.Info("Worker started", zap.Int("workerId", id))
+	logger.Debug("Worker started", zap.Int("workerId", id))
 	for job := range wp.jobsChan {
 		jobType := fmt.Sprintf("%T", job)
 		logger.Debug("Worker processing job", zap.Int("workerId", id), zap.String("jobType", jobType))
@@ -64,7 +64,7 @@ func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTr
 		}
 		jobWg.Done() // Decrement job wait group *after* job execution completes
 	}
-	logger.Info("Worker finished", zap.Int("workerId", id))
+	logger.Debug("Worker finished", zap.Int("workerId", id))
 }
 
 // Submit adds a job to the queue.

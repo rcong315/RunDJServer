@@ -19,7 +19,7 @@ type User struct {
 
 func SaveUser(user *User) error {
 	// TODO: Save tokens
-	logger.Info("Attempting to save user", zap.String("userId", user.UserId), zap.String("displayName", user.DisplayName))
+	logger.Debug("Attempting to save user", zap.String("userId", user.UserId), zap.String("displayName", user.DisplayName))
 
 	sqlQuery, err := getQueryString("insert", "user")
 	if err != nil {
@@ -51,6 +51,6 @@ func SaveUser(user *User) error {
 		return fmt.Errorf("error creating user record: %v", err)
 	}
 
-	logger.Info("Successfully saved user", zap.String("userId", user.UserId))
+	logger.Debug("Successfully saved user", zap.String("userId", user.UserId))
 	return nil
 }

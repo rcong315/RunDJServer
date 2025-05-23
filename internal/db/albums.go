@@ -24,7 +24,7 @@ func SaveAlbums(albums []*Album) error {
 		logger.Debug("SaveAlbums: No albums to save.")
 		return nil
 	}
-	logger.Info("Attempting to save albums", zap.Int("count", len(albums)))
+	logger.Debug("Attempting to save albums", zap.Int("count", len(albums)))
 
 	err := batchAndSave(albums, "album", func(item any, _ int) []any {
 		album := item.(*Album)
@@ -46,7 +46,7 @@ func SaveAlbums(albums []*Album) error {
 		return fmt.Errorf("error saving albums: %v", err)
 	}
 
-	logger.Info("Successfully saved albums batch", zap.Int("count", len(albums)))
+	logger.Debug("Successfully saved albums batch", zap.Int("count", len(albums)))
 	return nil
 }
 
@@ -55,7 +55,7 @@ func SaveUserSavedAlbums(userId string, albums []*Album) error {
 		logger.Debug("SaveUserSavedAlbums: No saved albums to associate for user.", zap.String("userId", userId))
 		return nil
 	}
-	logger.Info("Attempting to save user-saved album associations", zap.String("userId", userId), zap.Int("count", len(albums)))
+	logger.Debug("Attempting to save user-saved album associations", zap.String("userId", userId), zap.Int("count", len(albums)))
 
 	err := batchAndSave(albums, "userSavedAlbum", func(item any, _ int) []any {
 		album := item.(*Album)
@@ -72,7 +72,7 @@ func SaveUserSavedAlbums(userId string, albums []*Album) error {
 		return fmt.Errorf("error saving user saved albums: %v", err)
 	}
 
-	logger.Info("Successfully saved user-saved album associations batch", zap.String("userId", userId), zap.Int("count", len(albums)))
+	logger.Debug("Successfully saved user-saved album associations batch", zap.String("userId", userId), zap.Int("count", len(albums)))
 	return nil
 }
 
@@ -81,7 +81,7 @@ func SaveAlbumTracks(albumId string, tracks []*Track) error {
 		logger.Debug("SaveAlbumTracks: No tracks to associate with album.", zap.String("albumId", albumId))
 		return nil
 	}
-	logger.Info("Attempting to save album-track associations", zap.String("albumId", albumId), zap.Int("trackCount", len(tracks)))
+	logger.Debug("Attempting to save album-track associations", zap.String("albumId", albumId), zap.Int("trackCount", len(tracks)))
 
 	err := batchAndSave(tracks, "albumTrack", func(item any, _ int) []any {
 		track := item.(*Track)
@@ -98,6 +98,6 @@ func SaveAlbumTracks(albumId string, tracks []*Track) error {
 		return fmt.Errorf("error saving album tracks: %v", err)
 	}
 
-	logger.Info("Successfully saved album-track associations batch", zap.String("albumId", albumId), zap.Int("trackCount", len(tracks)))
+	logger.Debug("Successfully saved album-track associations batch", zap.String("albumId", albumId), zap.Int("trackCount", len(tracks)))
 	return nil
 }

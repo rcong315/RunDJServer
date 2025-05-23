@@ -67,17 +67,17 @@ func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 }
 
 func processPlaylists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
-	logger.Info("Processing user playlists", zap.String("userId", userId))
+	logger.Debug("Processing user playlists", zap.String("userId", userId))
 	usersPlaylists, err := spotify.GetUsersPlaylists(token)
 	if err != nil {
 		logger.Error("Error getting user playlists", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting playlists: %w", err)
 	}
 	if len(usersPlaylists) == 0 {
-		logger.Info("No playlists found for user", zap.String("userId", userId))
+		logger.Debug("No playlists found for user", zap.String("userId", userId))
 		return nil
 	}
-	logger.Info("Retrieved user playlists", zap.String("userId", userId), zap.Int("playlistCount", len(usersPlaylists)))
+	logger.Debug("Retrieved user playlists", zap.String("userId", userId), zap.Int("playlistCount", len(usersPlaylists)))
 
 	dbPlaylists := convertSpotifyPlaylistsToDBPlaylists(usersPlaylists)
 	var playlistsToSave []*db.Playlist
@@ -121,8 +121,8 @@ func processPlaylists(userId string, token string, pool *WorkerPool, tracker *Pr
 			logger.Warn("Encountered nil or empty ID playlist during job submission", zap.String("userId", userId))
 		}
 	}
-	logger.Info("Submitted jobs to save playlist tracks", zap.String("userId", userId), zap.Int("submittedJobCount", submittedJobs))
+	logger.Debug("Submitted jobs to save playlist tracks", zap.String("userId", userId), zap.Int("submittedJobCount", submittedJobs))
 
-	logger.Info("Finished processing user playlists", zap.String("userId", userId))
+	logger.Debug("Finished processing user playlists", zap.String("userId", userId))
 	return nil
 }

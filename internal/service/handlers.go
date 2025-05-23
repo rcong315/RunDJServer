@@ -47,7 +47,7 @@ func RegisterHandler(c *gin.Context) {
 		})
 		return
 	}
-	logger.Info("RegisterHandler: User retrieved", zap.String("userId", user.Id), zap.String("displayName", user.DisplayName))
+	logger.Debug("RegisterHandler: User retrieved", zap.String("userId", user.Id), zap.String("displayName", user.DisplayName))
 	saveUser(user) // Assuming saveUser has its own logging if necessary
 
 	processAll(token, user.Id) // Assuming processAll has its own logging
@@ -76,7 +76,7 @@ func PresetPlaylistHandler(c *gin.Context) {
 	}
 
 	roundedBPM := int(math.Round(float64(bpm)/5) * 5)
-	logger.Info("PresetPlaylistHandler: BPM processed", zap.Float64("originalBPM", bpm), zap.Int("roundedBPM", roundedBPM))
+	logger.Debug("PresetPlaylistHandler: BPM processed", zap.Float64("originalBPM", bpm), zap.Int("roundedBPM", roundedBPM))
 
 	playlistId, exists := presetPlaylists[roundedBPM]
 	if !exists {
@@ -119,7 +119,7 @@ func RecommendationsHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No top artists found"})
 		return
 	}
-	logger.Info("RecommendationsHandler: User's top artists retrieved", zap.String("userId", userIdForLogging), zap.Int("count", len(usersTopArtists)))
+	logger.Debug("RecommendationsHandler: User's top artists retrieved", zap.String("userId", userIdForLogging), zap.Int("count", len(usersTopArtists)))
 
 	numSeedArtists := 5
 	if len(usersTopArtists) < 5 {
@@ -154,7 +154,7 @@ func RecommendationsHandler(c *gin.Context) {
 	minBPM := bpm - 2
 	maxBPM := bpm + 2
 
-	logger.Info("RecommendationsHandler: Getting recommendations",
+	logger.Debug("RecommendationsHandler: Getting recommendations",
 		zap.String("userId", userIdForLogging),
 		zap.Strings("seedArtists", seedArtists),
 		zap.Strings("seedGenres", seedGenres),
@@ -200,7 +200,7 @@ func MatchingTracksHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
 		return
 	}
-	logger.Info("MatchingTracksHandler: User identified", zap.String("userId", userId))
+	logger.Debug("MatchingTracksHandler: User identified", zap.String("userId", userId))
 
 	bpmStr := c.Param("bpm")
 	if bpmStr == "" {
@@ -216,11 +216,11 @@ func MatchingTracksHandler(c *gin.Context) {
 	}
 	min := bpm - 1.5
 	max := bpm + 1.5
-	logger.Info("MatchingTracksHandler: BPM parameters set", zap.String("userId", userId), zap.Float64("targetBPM", bpm), zap.Float64("minBPM", min), zap.Float64("maxBPM", max))
+	logger.Debug("MatchingTracksHandler: BPM parameters set", zap.String("userId", userId), zap.Float64("targetBPM", bpm), zap.Float64("minBPM", min), zap.Float64("maxBPM", max))
 
 	sourcesStr := c.Query("sources")
 	sources := strings.Split(sourcesStr, ",")
-	logger.Info("MatchingTracksHandler: Sources for tracks", zap.String("userId", userId), zap.Strings("sources", sources))
+	logger.Debug("MatchingTracksHandler: Sources for tracks", zap.String("userId", userId), zap.Strings("sources", sources))
 
 	tracks, err := db.GetTracksByBPM(userId, min, max, sources)
 	if err != nil {
@@ -263,7 +263,7 @@ func CreatePlaylistHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
 		return
 	}
-	logger.Info("CreatePlaylistHandler: User identified", zap.String("userId", userId))
+	logger.Debug("CreatePlaylistHandler: User identified", zap.String("userId", userId))
 
 	bpmStr := c.Param("bpm")
 	if bpmStr == "" {
@@ -279,11 +279,11 @@ func CreatePlaylistHandler(c *gin.Context) {
 	}
 	min := bpm - 1.5
 	max := bpm + 1.5
-	logger.Info("CreatePlaylistHandler: BPM parameters set", zap.String("userId", userId), zap.Float64("targetBPM", bpm), zap.Float64("minBPM", min), zap.Float64("maxBPM", max))
+	logger.Debug("CreatePlaylistHandler: BPM parameters set", zap.String("userId", userId), zap.Float64("targetBPM", bpm), zap.Float64("minBPM", min), zap.Float64("maxBPM", max))
 
 	sourcesStr := c.Query("sources")
 	sources := strings.Split(sourcesStr, ",")
-	logger.Info("CreatePlaylistHandler: Sources for tracks", zap.String("userId", userId), zap.Strings("sources", sources))
+	logger.Debug("CreatePlaylistHandler: Sources for tracks", zap.String("userId", userId), zap.Strings("sources", sources))
 
 	tracks, err := db.GetTracksByBPM(userId, min, max, sources)
 	if err != nil {
@@ -297,9 +297,9 @@ func CreatePlaylistHandler(c *gin.Context) {
 	for key := range tracks {
 		ids = append(ids, key)
 	}
-	logger.Info("CreatePlaylistHandler: Tracks for playlist retrieved", zap.String("userId", userId), zap.Int("count", len(ids)))
+	logger.Debug("CreatePlaylistHandler: Tracks for playlist retrieved", zap.String("userId", userId), zap.Int("count", len(ids)))
 
-	logger.Info("Creating playlist",
+	logger.Debug("Creating playlist",
 		zap.String("userId", userId),
 		zap.Float64("minBPM", min),
 		zap.Float64("maxBPM", max),
@@ -338,7 +338,7 @@ func FeedbackHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing userId"})
 		return
 	}
-	logger.Info("FeedbackHandler: User identified", zap.String("userId", userId))
+	logger.Debug("FeedbackHandler: User identified", zap.String("userId", userId))
 
 	songId := c.Param("songId")
 	if songId == "" {
@@ -346,7 +346,7 @@ func FeedbackHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing songId"})
 		return
 	}
-	logger.Info("FeedbackHandler: Song identified", zap.String("userId", userId), zap.String("songId", songId))
+	logger.Debug("FeedbackHandler: Song identified", zap.String("userId", userId), zap.String("songId", songId))
 
 	feedback := c.Query("feedback")
 	if feedback == "" {
@@ -364,7 +364,7 @@ func FeedbackHandler(c *gin.Context) {
 		feedbackInt = 0 // Or handle as an error if feedback must be LIKE/DISLIKE
 		logger.Warn("FeedbackHandler: Invalid feedback value", zap.String("userId", userId), zap.String("songId", songId), zap.String("feedbackValue", feedback))
 	}
-	logger.Info("FeedbackHandler: Feedback processed", zap.String("userId", userId), zap.String("songId", songId), zap.String("feedback", feedback), zap.Int("feedbackInt", feedbackInt))
+	logger.Debug("FeedbackHandler: Feedback processed", zap.String("userId", userId), zap.String("songId", songId), zap.String("feedback", feedback), zap.Int("feedbackInt", feedbackInt))
 
 	err = db.SaveFeedback(userId, songId, feedbackInt) // Assuming SaveFeedback has its own logging if necessary
 	if err != nil {

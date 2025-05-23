@@ -42,7 +42,7 @@ func SaveTracks(tracks []*Track) error {
 		logger.Debug("SaveTracks: No tracks to save.")
 		return nil
 	}
-	logger.Info("Attempting to save tracks", zap.Int("count", len(tracks)))
+	logger.Debug("Attempting to save tracks", zap.Int("count", len(tracks)))
 
 	err := batchAndSave(tracks, "track", func(item any, _ int) []any {
 		track := item.(*Track)
@@ -79,7 +79,7 @@ func SaveTracks(tracks []*Track) error {
 		return fmt.Errorf("error saving tracks: %v", err)
 	}
 
-	logger.Info("Successfully saved tracks batch", zap.Int("count", len(tracks)))
+	logger.Debug("Successfully saved tracks batch", zap.Int("count", len(tracks)))
 	return nil
 }
 
@@ -88,7 +88,7 @@ func SaveUserTopTracks(userId string, tracks []*Track) error {
 		logger.Debug("SaveUserTopTracks: No tracks to save for user.", zap.String("userId", userId))
 		return nil
 	}
-	logger.Info("Attempting to save user top tracks", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	logger.Debug("Attempting to save user top tracks", zap.String("userId", userId), zap.Int("count", len(tracks)))
 
 	err := batchAndSave(tracks, "userTopTrack", func(item any, rank int) []any {
 		track := item.(*Track)
@@ -106,7 +106,7 @@ func SaveUserTopTracks(userId string, tracks []*Track) error {
 		return fmt.Errorf("error saving user top tracks: %v", err)
 	}
 
-	logger.Info("Successfully saved user top tracks batch", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	logger.Debug("Successfully saved user top tracks batch", zap.String("userId", userId), zap.Int("count", len(tracks)))
 	return nil
 }
 
@@ -115,7 +115,7 @@ func SaveUserSavedTracks(userId string, tracks []*Track) error {
 		logger.Debug("SaveUserSavedTracks: No tracks to save for user.", zap.String("userId", userId))
 		return nil
 	}
-	logger.Info("Attempting to save user saved tracks", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	logger.Debug("Attempting to save user saved tracks", zap.String("userId", userId), zap.Int("count", len(tracks)))
 
 	err := batchAndSave(tracks, "userSavedTrack", func(item any, _ int) []any {
 		track := item.(*Track)
@@ -132,12 +132,12 @@ func SaveUserSavedTracks(userId string, tracks []*Track) error {
 		return fmt.Errorf("error saving user saved tracks: %v", err)
 	}
 
-	logger.Info("Successfully saved user saved tracks batch", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	logger.Debug("Successfully saved user saved tracks batch", zap.String("userId", userId), zap.Int("count", len(tracks)))
 	return nil
 }
 
 func GetTracksByBPM(userId string, min float64, max float64, sources []string) (map[string]float64, error) {
-	logger.Info("Getting tracks by BPM for user",
+	logger.Debug("Getting tracks by BPM for user",
 		zap.String("userId", userId),
 		zap.Float64("minBPM", min),
 		zap.Float64("maxBPM", max),
@@ -201,14 +201,14 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 			zap.Int("processedRows", processedRows))
 	}
 
-	logger.Info("GetTracksByBPM: Successfully retrieved tracks",
+	logger.Debug("GetTracksByBPM: Successfully retrieved tracks",
 		zap.String("userId", userId),
 		zap.Int("trackCount", len(tracks)))
 	return tracks, nil
 }
 
 func SaveFeedback(userId string, trackId string, feedback int) error {
-	logger.Info("Attempting to save feedback",
+	logger.Debug("Attempting to save feedback",
 		zap.String("userId", userId),
 		zap.String("trackId", trackId),
 		zap.Int("feedback", feedback))
@@ -242,7 +242,7 @@ func SaveFeedback(userId string, trackId string, feedback int) error {
 		return fmt.Errorf("error creating feedback record: %v", err)
 	}
 
-	logger.Info("Successfully saved feedback",
+	logger.Debug("Successfully saved feedback",
 		zap.String("userId", userId),
 		zap.String("trackId", trackId),
 		zap.Int("feedback", feedback))

@@ -38,7 +38,7 @@ type PlaylistsTracksResponse struct {
 }
 
 func GetUsersPlaylists(token string) ([]*Playlist, error) {
-	logger.Info("Attempting to get user's playlists")
+	logger.Debug("Attempting to get user's playlists")
 	url := fmt.Sprintf("%s/me/playlists/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	responses, err := fetchAllResults[UsersPlaylistsResponse](token, url)
@@ -54,12 +54,12 @@ func GetUsersPlaylists(token string) ([]*Playlist, error) {
 		}
 	}
 
-	logger.Info("Successfully retrieved user's playlists", zap.Int("count", len(allPlaylists)))
+	logger.Debug("Successfully retrieved user's playlists", zap.Int("count", len(allPlaylists)))
 	return allPlaylists, nil
 }
 
 func GetPlaylistsTracks(token string, playlistId string) ([]*Track, error) {
-	logger.Info("Attempting to get tracks for playlist", zap.String("playlistId", playlistId))
+	logger.Debug("Attempting to get tracks for playlist", zap.String("playlistId", playlistId))
 	url := fmt.Sprintf("%s/playlists/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, playlistId, limitMax, 0)
 	logger.Debug("Fetching playlist tracks from URL", zap.String("playlistId", playlistId), zap.String("url", url))
 
@@ -75,19 +75,19 @@ func GetPlaylistsTracks(token string, playlistId string) ([]*Track, error) {
 			allTracks = append(allTracks, &response.Items[i].Track)
 		}
 	}
-	logger.Info("Successfully retrieved initial playlist tracks list", zap.String("playlistId", playlistId), zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved initial playlist tracks list", zap.String("playlistId", playlistId), zap.Int("count", len(allTracks)))
 
 	allTracks, err = getAudioFeatures(allTracks)
 	if err != nil {
 		logger.Error("Error getting audio features for playlist tracks", zap.String("playlistId", playlistId), zap.Int("trackCount", len(allTracks)), zap.Error(err))
 		// Return tracks even if audio features fail for some
 	}
-	logger.Info("Successfully retrieved playlist tracks with audio features", zap.String("playlistId", playlistId), zap.Int("count", len(allTracks)))
+	logger.Debug("Successfully retrieved playlist tracks with audio features", zap.String("playlistId", playlistId), zap.Int("count", len(allTracks)))
 	return allTracks, err
 }
 
 func CreatePlaylist(token string, userId string, bpm float64, min float64, max float64, tracks []string) (*Playlist, error) {
-	logger.Info("Attempting to create playlist for user",
+	logger.Debug("Attempting to create playlist for user",
 		zap.String("userId", userId),
 		zap.Float64("bpm", bpm),
 		zap.Int("trackCount", len(tracks)))
@@ -157,11 +157,11 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 		logger.Error("Failed to parse playlist ID from create playlist response", zap.String("responseBody", bodyString))
 		return nil, fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
 	}
-	logger.Info("Successfully created playlist", zap.String("playlistId", playlistId), zap.String("userId", userId), zap.String("name", name))
+	logger.Debug("Successfully created playlist", zap.String("playlistId", playlistId), zap.String("userId", userId), zap.String("name", name))
 
 	// Add tracks to the created playlist
 	if len(tracks) > 0 {
-		logger.Info("Adding tracks to created playlist", zap.String("playlistId", playlistId), zap.Int("trackCount", len(tracks)))
+		logger.Debug("Adding tracks to created playlist", zap.String("playlistId", playlistId), zap.Int("trackCount", len(tracks)))
 		for i := 0; i < len(tracks); i += 100 {
 			var ids []string
 			for j := i; j < i+100 && j < len(tracks); j++ {
@@ -205,9 +205,9 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 					zap.String("url", addTracksURL))
 				return playlist, fmt.Errorf("failed to add tracks to playlist: status %d, body: %s", addTracksResp.StatusCode, string(addTracksBodyBytes))
 			}
-			logger.Info("Successfully added batch of tracks to playlist", zap.String("playlistId", playlistId), zap.Int("batchSize", len(ids)))
+			logger.Debug("Successfully added batch of tracks to playlist", zap.String("playlistId", playlistId), zap.Int("batchSize", len(ids)))
 		}
-		logger.Info("Finished adding all tracks to playlist", zap.String("playlistId", playlistId), zap.Int("totalTracksAdded", len(tracks)))
+		logger.Debug("Finished adding all tracks to playlist", zap.String("playlistId", playlistId), zap.Int("totalTracksAdded", len(tracks)))
 	}
 
 	return playlist, nil

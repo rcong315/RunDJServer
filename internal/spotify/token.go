@@ -34,7 +34,7 @@ const expirationBuffer = 60 * time.Second // Refresh if expires within 60 second
 const retryCooldown = 15 * time.Second
 
 func fetchNewToken() (string, time.Time, error) {
-	logger.Info("Attempting to fetch a new secret token")
+	logger.Debug("Attempting to fetch a new secret token")
 
 	apiURL := os.Getenv("TOKEN_URL")
 	if apiURL == "" {
@@ -50,7 +50,7 @@ func fetchNewToken() (string, time.Time, error) {
 	}
 	req.Header.Add("Accept", "application/json")
 
-	resp, err := httpClient.Do(req) // Use the shared client
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		logger.Error("Failed to execute request for new token", zap.String("url", url), zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to execute request to %s: %w", url, err)
@@ -100,7 +100,7 @@ func fetchNewToken() (string, time.Time, error) {
 
 	expirationTime := time.UnixMilli(result.ExpiresMs)
 
-	logger.Info("Successfully fetched new secret token", zap.Time("expiresAt", expirationTime))
+	logger.Debug("Successfully fetched new secret token", zap.Time("expiresAt", expirationTime))
 	return result.Token, expirationTime, nil
 }
 
@@ -130,7 +130,7 @@ func getSecretToken() (string, error) {
 		}
 	}
 
-	logger.Info("Cached token invalid, missing, or expiring soon. Attempting refresh.",
+	logger.Debug("Cached token invalid, missing, or expiring soon. Attempting refresh.",
 		zap.String("currentToken", tokenInfo), // Safely log token identification
 		zap.Time("currentExpiresAt", tokenCache.expiresAt))
 
@@ -142,7 +142,7 @@ func getSecretToken() (string, error) {
 	// Another goroutine might have refreshed the token while we waited for the lock.
 	now = time.Now() // Re-check current time
 	if tokenCache.token != "" && now.Before(tokenCache.expiresAt.Add(-expirationBuffer)) {
-		logger.Info("Token refreshed by another goroutine while waiting for lock; returning cached token.",
+		logger.Debug("Token refreshed by another goroutine while waiting for lock; returning cached token.",
 			zap.Time("newCachedExpiresAt", tokenCache.expiresAt))
 		return tokenCache.token, nil // Return the newly cached token
 	}
@@ -168,7 +168,7 @@ func getSecretToken() (string, error) {
 	}
 
 	// --- Success: Update cache ---
-	logger.Info("Updating token cache with newly fetched token", zap.Time("newExpiresAt", newExpiresAt))
+	logger.Debug("Updating token cache with newly fetched token", zap.Time("newExpiresAt", newExpiresAt))
 	tokenCache.token = newToken
 	tokenCache.expiresAt = newExpiresAt
 	tokenCache.fetchErr = nil // Clear any previous error on success
