@@ -43,7 +43,6 @@ func fetchNewToken() (string, time.Time, error) {
 	}
 	url := apiURL + "/token"
 
-	client := http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		logger.Error("Failed to create HTTP request for new token", zap.String("url", url), zap.Error(err))
@@ -51,7 +50,7 @@ func fetchNewToken() (string, time.Time, error) {
 	}
 	req.Header.Add("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req) // Use the shared client
 	if err != nil {
 		logger.Error("Failed to execute request for new token", zap.String("url", url), zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to execute request to %s: %w", url, err)

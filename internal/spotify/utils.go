@@ -15,9 +15,11 @@ import (
 )
 
 var (
-	config     *Config
-	configOnce sync.Once
-	configErr  error
+	config         *Config
+	configOnce     sync.Once
+	configErr      error
+	httpClient     *http.Client
+	httpClientOnce sync.Once
 )
 
 const (
@@ -27,6 +29,20 @@ const (
 )
 
 var retryLimits = []int{20, 10, 5}
+
+func init() {
+	httpClientOnce.Do(func() {
+		transport := &http.Transport{
+			MaxIdleConns:        100,
+			IdleConnTimeout:     90 * time.Second,
+			MaxIdleConnsPerHost: 10,
+		}
+		httpClient = &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
+		}
+	})
+}
 
 type Image struct {
 	URL string `json:"url"`
@@ -154,12 +170,9 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 			lastErr = err
 			continue
 		}
-
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-		client := &http.Client{
-			Timeout: 30 * time.Second,
-		}
-		resp, err := client.Do(req)
+
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			logger.Error("Error making GET request", zap.Error(err), zap.String("url", url))
 			lastErr = err

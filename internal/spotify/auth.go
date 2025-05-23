@@ -184,9 +184,7 @@ func makeTokenRequest(clientId string, clientSecret string, data url.Values) (*T
 	req.Header.Add("Content-Length", fmt.Sprintf("%d", len(data.Encode())))
 	req.Header.Add("Authorization", authHeader)
 
-	// Send request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
