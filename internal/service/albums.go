@@ -14,7 +14,7 @@ type SaveAlbumTracksJob struct {
 	AlbumId string
 }
 
-func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker) error {
+func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
 	albumId := j.AlbumId
 
 	albumTracks, err := spotify.GetAlbumsTracks(albumId)
@@ -46,7 +46,7 @@ func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tr
 	return nil
 }
 
-func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
+func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Getting user's saved albums", zap.String("userId", userId))
 	usersSavedAlbums, err := spotify.GetUsersSavedAlbums(token)
 	if err != nil {
@@ -76,9 +76,9 @@ func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *
 	}
 
 	for _, album := range usersSavedAlbums {
-		pool.Submit(&SaveAlbumTracksJob{
+		pool.SubmitWithStage(&SaveAlbumTracksJob{
 			AlbumId: album.Id,
-		}, jobWg)
+		}, jobWg, stage)
 	}
 
 	return nil

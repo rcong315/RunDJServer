@@ -15,7 +15,7 @@ type SavePlaylistTracksJob struct {
 	PlaylistID string
 }
 
-func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker) error {
+func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
 	token := j.Token // Token should not be logged directly for security
 	playlistId := j.PlaylistID
 	logger.Debug("Executing SavePlaylistTracksJob", zap.String("playlistId", playlistId))
@@ -66,7 +66,7 @@ func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 	return nil
 }
 
-func processPlaylists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
+func processPlaylists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Processing user playlists", zap.String("userId", userId))
 	usersPlaylists, err := spotify.GetUsersPlaylists(token)
 	if err != nil {
@@ -112,10 +112,10 @@ func processPlaylists(userId string, token string, pool *WorkerPool, tracker *Pr
 	submittedJobs := 0
 	for _, playlist := range usersPlaylists {
 		if playlist != nil && playlist.Id != "" {
-			pool.Submit(&SavePlaylistTracksJob{
+			pool.SubmitWithStage(&SavePlaylistTracksJob{
 				Token:      token,
 				PlaylistID: playlist.Id,
-			}, jobWg)
+			}, jobWg, stage)
 			submittedJobs++
 		} else {
 			logger.Warn("Encountered nil or empty ID playlist during job submission", zap.String("userId", userId))

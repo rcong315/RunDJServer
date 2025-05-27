@@ -47,14 +47,24 @@ func processAll(token string, userId string) {
 
 		pool.Start(&jobWg, tracker)
 
-		processAndCollectErrors := func(name string, processFunc func(string, string, *WorkerPool, *ProcessedTracker, *sync.WaitGroup) error) {
+		processAndCollectErrors := func(name string, processFunc func(string, string, *WorkerPool, *ProcessedTracker, *sync.WaitGroup, *StageContext) error) {
 			funcStart := time.Now()
+			
+			// Create a stage-specific wait group
+			stageWg := &sync.WaitGroup{}
+			stageCtx := &StageContext{
+				wg:   stageWg,
+				name: name,
+			}
 
-			if err := processFunc(userId, token, pool, tracker, &jobWg); err != nil {
+			if err := processFunc(userId, token, pool, tracker, &jobWg, stageCtx); err != nil {
 				errorMu.Lock()
 				allErrors = append(allErrors, err)
 				errorMu.Unlock()
 			}
+			
+			// Wait for all jobs in this stage to complete
+			stageWg.Wait()
 
 			logger.Info("Processing stage completed",
 				zap.String("userId", userId),

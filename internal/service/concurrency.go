@@ -10,16 +10,22 @@ import (
 
 // --- Worker Pool Setup ---
 
+// StageContext tracks jobs belonging to a specific processing stage
+type StageContext struct {
+	wg   *sync.WaitGroup
+	name string
+}
+
 // Job represents a task for a worker to execute.
 // We use an interface to allow different kinds of tasks.
 type Job interface {
-	Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker) error
+	Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error
 }
 
 // WorkerPool manages a pool of workers and distributes jobs.
 type WorkerPool struct {
 	numWorkers  int
-	jobsChan    chan Job
+	jobsChan    chan *JobWrapper
 	resultsChan chan error // Channel to collect errors from jobs
 	wg          sync.WaitGroup
 }
@@ -28,7 +34,7 @@ type WorkerPool struct {
 func NewWorkerPool(numWorkers int, jobQueueSize int) *WorkerPool {
 	return &WorkerPool{
 		numWorkers:  numWorkers,
-		jobsChan:    make(chan Job, jobQueueSize),   // Buffered channel
+		jobsChan:    make(chan *JobWrapper, jobQueueSize),   // Buffered channel
 		resultsChan: make(chan error, jobQueueSize), // Buffered channel for errors
 	}
 }
@@ -42,15 +48,21 @@ func (wp *WorkerPool) Start(jobWg *sync.WaitGroup, tracker *ProcessedTracker) {
 	}
 }
 
+// JobWrapper wraps a job with its stage context
+type JobWrapper struct {
+	job   Job
+	stage *StageContext
+}
+
 // worker is the function executed by each worker goroutine.
 func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTracker) {
 	defer wp.wg.Done()
 	logger.Debug("Worker started", zap.Int("workerId", id))
-	for job := range wp.jobsChan {
-		jobType := fmt.Sprintf("%T", job)
+	for wrapper := range wp.jobsChan {
+		jobType := fmt.Sprintf("%T", wrapper.job)
 		logger.Debug("Worker processing job", zap.Int("workerId", id), zap.String("jobType", jobType))
 		// Pass context down to the job's Execute method
-		err := job.Execute(wp, jobWg, tracker)
+		err := wrapper.job.Execute(wp, jobWg, tracker, wrapper.stage)
 		if err != nil {
 			select {
 			case wp.resultsChan <- err:
@@ -63,6 +75,11 @@ func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTr
 			}
 		}
 		jobWg.Done() // Decrement job wait group *after* job execution completes
+		
+		// Also decrement stage wait group if present
+		if wrapper.stage != nil {
+			wrapper.stage.wg.Done()
+		}
 	}
 	logger.Debug("Worker finished", zap.Int("workerId", id))
 }
@@ -70,8 +87,22 @@ func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTr
 // Submit adds a job to the queue.
 // It also increments the job WaitGroup.
 func (wp *WorkerPool) Submit(job Job, jobWg *sync.WaitGroup) {
-	jobWg.Add(1) // Increment WG *before* sending to channel
-	wp.jobsChan <- job
+	wp.SubmitWithStage(job, jobWg, nil)
+}
+
+// SubmitWithStage adds a job to the queue with stage tracking.
+// It increments both the job WaitGroup and the stage WaitGroup if provided.
+func (wp *WorkerPool) SubmitWithStage(job Job, jobWg *sync.WaitGroup, stage *StageContext) {
+	jobWg.Add(1) // Increment global WG *before* sending to channel
+	
+	if stage != nil {
+		stage.wg.Add(1) // Also increment stage WG
+	}
+	
+	wp.jobsChan <- &JobWrapper{
+		job:   job,
+		stage: stage,
+	}
 }
 
 // Stop closes the jobs channel and waits for all workers to finish processing.

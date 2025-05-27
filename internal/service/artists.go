@@ -26,7 +26,7 @@ type SaveArtistAlbumsJob struct {
 	ArtistId string
 }
 
-func (j *SaveArtistTopTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker) error {
+func (j *SaveArtistTopTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
 	artistId := j.ArtistId
 
 	artistTopTracks, err := spotify.GetArtistsTopTracks(artistId)
@@ -58,7 +58,7 @@ func (j *SaveArtistTopTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup
 	return nil
 }
 
-func (j *SaveArtistAlbumsJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker) error {
+func (j *SaveArtistAlbumsJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
 	artistId := j.ArtistId
 
 	artistAlbums, err := spotify.GetArtistsAlbumsAndSingles(artistId)
@@ -88,15 +88,15 @@ func (j *SaveArtistAlbumsJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, t
 	}
 
 	for _, album := range artistAlbums {
-		pool.Submit(&SaveAlbumTracksJob{
+		pool.SubmitWithStage(&SaveAlbumTracksJob{
 			AlbumId: album.Id,
-		}, jobWg)
+		}, jobWg, stage)
 	}
 
 	return nil
 }
 
-func processTopArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
+func processTopArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Getting user's top artists", zap.String("userId", userId))
 	usersTopArtists, err := spotify.GetUsersTopArtists(token)
 	if err != nil {
@@ -126,19 +126,19 @@ func processTopArtists(userId string, token string, pool *WorkerPool, tracker *P
 	}
 
 	for _, artist := range usersTopArtists {
-		pool.Submit(&SaveArtistTopTracksJob{
+		pool.SubmitWithStage(&SaveArtistTopTracksJob{
 			ArtistId: artist.Id,
 			Type:     TopArtists,
-		}, jobWg)
-		pool.Submit(&SaveArtistAlbumsJob{
+		}, jobWg, stage)
+		pool.SubmitWithStage(&SaveArtistAlbumsJob{
 			ArtistId: artist.Id,
-		}, jobWg)
+		}, jobWg, stage)
 	}
 
 	return nil
 }
 
-func processFollowedArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
+func processFollowedArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Getting user's followed artists", zap.String("userId", userId))
 	usersFollowedArtists, err := spotify.GetUsersFollowedArtists(token)
 	if err != nil {
@@ -168,13 +168,13 @@ func processFollowedArtists(userId string, token string, pool *WorkerPool, track
 	}
 
 	for _, artist := range usersFollowedArtists {
-		pool.Submit(&SaveArtistTopTracksJob{
+		pool.SubmitWithStage(&SaveArtistTopTracksJob{
 			ArtistId: artist.Id,
 			Type:     FollowedArtists,
-		}, jobWg)
-		pool.Submit(&SaveArtistAlbumsJob{
+		}, jobWg, stage)
+		pool.SubmitWithStage(&SaveArtistAlbumsJob{
 			ArtistId: artist.Id,
-		}, jobWg)
+		}, jobWg, stage)
 	}
 
 	return nil

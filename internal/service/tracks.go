@@ -10,7 +10,7 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
-func processTopTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
+func processTopTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Processing user top tracks", zap.String("userId", userId))
 	usersTopTracks, err := spotify.GetUsersTopTracks(token)
 	if err != nil {
@@ -57,7 +57,7 @@ func processTopTracks(userId string, token string, pool *WorkerPool, tracker *Pr
 	return nil
 }
 
-func processSavedTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup) error {
+func processSavedTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Processing user saved tracks", zap.String("userId", userId))
 	usersSavedTracks, err := spotify.GetUsersSavedTracks(token)
 	if err != nil {

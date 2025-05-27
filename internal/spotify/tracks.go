@@ -218,9 +218,7 @@ func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxT
 		url += fmt.Sprintf("max_tempo=%f", maxTempo)
 	}
 	// Remove trailing '&' if present
-	if strings.HasSuffix(url, "&") {
-		url = url[:len(url)-1]
-	}
+	url = strings.TrimSuffix(url, "&")
 	logger.Debug("Recommendations request URL", zap.String("url", url))
 
 	// Recommendations API returns a single object, not a paginated list of them.
