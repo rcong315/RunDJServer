@@ -37,23 +37,22 @@ func main() {
 	router.Use(ginzap.RecoveryWithZap(logger, true))
 
 	// API Key middleware - exclude public and auth endpoints
-	router.Use(service.APIKeyMiddleware("/", "/thanks", "/api/spotify/auth/"))
+	router.Use(service.APIKeyMiddleware("/", "/api/v1/spotify/auth/"))
 
 	router.GET("/", service.HomeHandler)
-	router.GET("/thanks", service.ThanksHandler)
 
-	router.POST("/api/spotify/auth/token", spotify.TokenHandler)
-	router.POST("/api/spotify/auth/refresh", spotify.RefreshHandler)
+	router.POST("/api/v1/spotify/auth/token", spotify.TokenHandler)
+	router.POST("/api/v1/spotify/auth/refresh", spotify.RefreshHandler)
 
-	router.POST("/api/user/register", service.RegisterHandler)
+	router.POST("/api/v1/user/register", service.RegisterHandler)
 
-	router.GET("/api/songs/preset", service.PresetPlaylistHandler)
-	router.GET("/api/songs/recommendations", service.RecommendationsHandler)
-	router.GET("/api/songs/bpm/:bpm", service.MatchingTracksHandler)
+	router.GET("/api/v1/songs/preset", service.PresetPlaylistHandler)
+	router.GET("/api/v1/songs/recommendations", service.RecommendationsHandler)
+	router.GET("/api/v1/songs/bpm/:bpm", service.MatchingTracksHandler)
 
-	router.POST("/api/song/:songId/feedback", service.FeedbackHandler)
+	router.POST("/api/v1/song/:songId/feedback", service.FeedbackHandler)
 
-	router.POST("/api/playlist/bpm/:bpm", service.CreatePlaylistHandler)
+	router.POST("/api/v1/playlist/bpm/:bpm", service.CreatePlaylistHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -23,12 +23,6 @@ func HomeHandler(c *gin.Context) {
 	c.String(http.StatusOK, "RunDJ Backend")
 }
 
-func ThanksHandler(c *gin.Context) {
-	logger.Info("ThanksHandler called", zap.String("path", c.Request.URL.Path))
-	c.Header("Content-Type", "text/html")
-	c.String(http.StatusOK, "<html><body><a href=\"https://getsongbpm.com\">getsongbpm.com</a></body></html>")
-}
-
 func RegisterHandler(c *gin.Context) {
 	// TODO: check when last updated to see if need to run processAll again
 	logger.Info("RegisterHandler called")
