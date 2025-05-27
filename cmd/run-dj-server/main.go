@@ -37,7 +37,7 @@ func main() {
 	router.Use(ginzap.RecoveryWithZap(logger, true))
 
 	// API Key middleware - exclude public and auth endpoints
-	router.Use(service.APIKeyMiddleware("/", "/api/v1/spotify/auth/"))
+	router.Use(service.APIKeyMiddleware("/api/v1/spotify/auth/"))
 
 	router.GET("/", service.HomeHandler)
 

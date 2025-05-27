@@ -29,9 +29,8 @@ func APIKeyMiddleware(excludedPaths ...string) gin.HandlerFunc {
 		if expectedAPIKey == "" {
 			logger.Error("API key not configured in environment")
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "API key validation is not properly configured",
-				"status":  "error",
-				"message": "Server configuration error",
+				"error":  "Unauthorized",
+				"status": "error",
 			})
 			c.Abort()
 			return
@@ -53,9 +52,8 @@ func APIKeyMiddleware(excludedPaths ...string) gin.HandlerFunc {
 				zap.String("ip", c.ClientIP()),
 			)
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error":   "API key required",
-				"status":  "error",
-				"message": "Please provide a valid API key in X-API-Key header or api_key query parameter",
+				"error":  "Unauthorized",
+				"status": "error",
 			})
 			c.Abort()
 			return
@@ -69,9 +67,8 @@ func APIKeyMiddleware(excludedPaths ...string) gin.HandlerFunc {
 				zap.String("providedKey", apiKey[:min(len(apiKey), 8)]+"..."), // Log only first 8 chars for security
 			)
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error":   "Invalid API key",
-				"status":  "error",
-				"message": "The provided API key is not valid",
+				"error":  "Unauthorized",
+				"status": "error",
 			})
 			c.Abort()
 			return
