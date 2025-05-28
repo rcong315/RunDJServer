@@ -61,36 +61,50 @@ func (j *SaveArtistTopTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup
 func (j *SaveArtistAlbumsJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
 	artistId := j.ArtistId
 
-	artistAlbums, err := spotify.GetArtistsAlbumsAndSingles(artistId)
+	var allDbAlbums []*db.Album
+	var mu sync.Mutex
+	
+	err := spotify.GetArtistsAlbumsAndSinglesStreaming(artistId, func(albums []*spotify.Album) error {
+		dbAlbums := convertSpotifyAlbumsToDBAlbums(albums)
+		
+		var albumsToSave []*db.Album
+		for _, album := range dbAlbums {
+			if !tracker.CheckAndMark("album", album.AlbumId) {
+				albumsToSave = append(albumsToSave, album)
+			}
+		}
+		
+		if len(albumsToSave) > 0 {
+			if err := db.SaveAlbums(albumsToSave); err != nil {
+				return fmt.Errorf("saving albums: %w, albums: %d", err, len(albumsToSave))
+			}
+		}
+		
+		// Submit jobs for album tracks immediately
+		for _, album := range albums {
+			pool.SubmitWithStage(&SaveAlbumTracksJob{
+				AlbumId: album.Id,
+			}, jobWg, stage)
+		}
+		
+		mu.Lock()
+		allDbAlbums = append(allDbAlbums, dbAlbums...)
+		mu.Unlock()
+		
+		return nil
+	})
+	
 	if err != nil {
 		return fmt.Errorf("getting albums for artist %s: %w", artistId, err)
 	}
-	if len(artistAlbums) == 0 {
+	
+	if len(allDbAlbums) == 0 {
 		return nil
 	}
 
-	dbAlbums := convertSpotifyAlbumsToDBAlbums(artistAlbums)
-	var albumsToSave []*db.Album
-	for _, album := range dbAlbums {
-		if !tracker.CheckAndMark("album", album.AlbumId) {
-			albumsToSave = append(albumsToSave, album)
-		}
-	}
-
-	err = db.SaveAlbums(albumsToSave)
-	if err != nil {
-		return fmt.Errorf("saving albums: %w, albums: %d", err, len(albumsToSave))
-	}
-
-	err = db.SaveArtistAlbums(artistId, dbAlbums)
+	err = db.SaveArtistAlbums(artistId, allDbAlbums)
 	if err != nil {
 		return fmt.Errorf("saving artist albums: %w", err)
-	}
-
-	for _, album := range artistAlbums {
-		pool.SubmitWithStage(&SaveAlbumTracksJob{
-			AlbumId: album.Id,
-		}, jobWg, stage)
 	}
 
 	return nil
@@ -98,41 +112,66 @@ func (j *SaveArtistAlbumsJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, t
 
 func processTopArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Getting user's top artists", zap.String("userId", userId))
-	usersTopArtists, err := spotify.GetUsersTopArtists(token)
+	
+	var allDbArtists []*db.Artist
+	var allSpotifyArtists []*spotify.Artist
+	var mu sync.Mutex
+	
+	err := spotify.GetUsersTopArtistsStreaming(token, func(artists []*spotify.Artist) error {
+		dbArtists := convertSpotifyArtistsToDBArtists(artists)
+		
+		var artistsToSave []*db.Artist
+		for _, artist := range dbArtists {
+			if !tracker.CheckAndMark("artist", artist.ArtistId) {
+				artistsToSave = append(artistsToSave, artist)
+			}
+		}
+		
+		if len(artistsToSave) > 0 {
+			if err := db.SaveArtists(artistsToSave); err != nil {
+				logger.Error("Error saving top artists batch to DB",
+					zap.String("userId", userId),
+					zap.Int("artistsToSaveCount", len(artistsToSave)),
+					zap.Error(err))
+				return fmt.Errorf("saving top artists: %w", err)
+			}
+		}
+		
+		// Submit jobs immediately
+		for _, artist := range artists {
+			pool.SubmitWithStage(&SaveArtistTopTracksJob{
+				ArtistId: artist.Id,
+				Type:     TopArtists,
+			}, jobWg, stage)
+			pool.SubmitWithStage(&SaveArtistAlbumsJob{
+				ArtistId: artist.Id,
+			}, jobWg, stage)
+		}
+		
+		mu.Lock()
+		allDbArtists = append(allDbArtists, dbArtists...)
+		allSpotifyArtists = append(allSpotifyArtists, artists...)
+		mu.Unlock()
+		
+		logger.Debug("Processed batch of top artists", 
+			zap.String("userId", userId), 
+			zap.Int("batchSize", len(artists)),
+			zap.Int("savedCount", len(artistsToSave)))
+		return nil
+	})
+	
 	if err != nil {
 		logger.Error("Error getting user's top artists", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting top artists: %w", err)
 	}
-	if len(usersTopArtists) == 0 {
+	
+	if len(allDbArtists) == 0 {
 		return nil
 	}
 
-	dbArtists := convertSpotifyArtistsToDBArtists(usersTopArtists)
-	var artistsToSave []*db.Artist
-	for _, artist := range dbArtists {
-		if !tracker.CheckAndMark("artist", artist.ArtistId) {
-			artistsToSave = append(artistsToSave, artist)
-		}
-	}
-
-	err = db.SaveArtists(artistsToSave)
-	if err != nil {
-		return fmt.Errorf("saving top artists: %w", err)
-	}
-
-	err = db.SaveUserTopArtists(userId, dbArtists)
+	err = db.SaveUserTopArtists(userId, allDbArtists)
 	if err != nil {
 		return fmt.Errorf("saving user-top artists relations: %w", err)
-	}
-
-	for _, artist := range usersTopArtists {
-		pool.SubmitWithStage(&SaveArtistTopTracksJob{
-			ArtistId: artist.Id,
-			Type:     TopArtists,
-		}, jobWg, stage)
-		pool.SubmitWithStage(&SaveArtistAlbumsJob{
-			ArtistId: artist.Id,
-		}, jobWg, stage)
 	}
 
 	return nil
@@ -140,41 +179,66 @@ func processTopArtists(userId string, token string, pool *WorkerPool, tracker *P
 
 func processFollowedArtists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Getting user's followed artists", zap.String("userId", userId))
-	usersFollowedArtists, err := spotify.GetUsersFollowedArtists(token)
+	
+	var allDbArtists []*db.Artist
+	var allSpotifyArtists []*spotify.Artist
+	var mu sync.Mutex
+	
+	err := spotify.GetUsersFollowedArtistsStreaming(token, func(artists []*spotify.Artist) error {
+		dbArtists := convertSpotifyArtistsToDBArtists(artists)
+		
+		var artistsToSave []*db.Artist
+		for _, artist := range dbArtists {
+			if !tracker.CheckAndMark("artist", artist.ArtistId) {
+				artistsToSave = append(artistsToSave, artist)
+			}
+		}
+		
+		if len(artistsToSave) > 0 {
+			if err := db.SaveArtists(artistsToSave); err != nil {
+				logger.Error("Error saving followed artists batch to DB",
+					zap.String("userId", userId),
+					zap.Int("artistsToSaveCount", len(artistsToSave)),
+					zap.Error(err))
+				return fmt.Errorf("saving followed artists: %w", err)
+			}
+		}
+		
+		// Submit jobs immediately
+		for _, artist := range artists {
+			pool.SubmitWithStage(&SaveArtistTopTracksJob{
+				ArtistId: artist.Id,
+				Type:     FollowedArtists,
+			}, jobWg, stage)
+			pool.SubmitWithStage(&SaveArtistAlbumsJob{
+				ArtistId: artist.Id,
+			}, jobWg, stage)
+		}
+		
+		mu.Lock()
+		allDbArtists = append(allDbArtists, dbArtists...)
+		allSpotifyArtists = append(allSpotifyArtists, artists...)
+		mu.Unlock()
+		
+		logger.Debug("Processed batch of followed artists", 
+			zap.String("userId", userId), 
+			zap.Int("batchSize", len(artists)),
+			zap.Int("savedCount", len(artistsToSave)))
+		return nil
+	})
+	
 	if err != nil {
 		logger.Error("Error getting user's followed artists", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting followed artists: %w", err)
 	}
-	if len(usersFollowedArtists) == 0 {
+	
+	if len(allDbArtists) == 0 {
 		return nil
 	}
 
-	dbArtists := convertSpotifyArtistsToDBArtists(usersFollowedArtists)
-	var artistsToSave []*db.Artist
-	for _, artist := range dbArtists {
-		if !tracker.CheckAndMark("artist", artist.ArtistId) {
-			artistsToSave = append(artistsToSave, artist)
-		}
-	}
-
-	err = db.SaveArtists(artistsToSave)
-	if err != nil {
-		return fmt.Errorf("saving followed artists: %w", err)
-	}
-
-	err = db.SaveUserFollowedArtists(userId, dbArtists)
+	err = db.SaveUserFollowedArtists(userId, allDbArtists)
 	if err != nil {
 		return fmt.Errorf("saving user-followed artists relations: %w", err)
-	}
-
-	for _, artist := range usersFollowedArtists {
-		pool.SubmitWithStage(&SaveArtistTopTracksJob{
-			ArtistId: artist.Id,
-			Type:     FollowedArtists,
-		}, jobWg, stage)
-		pool.SubmitWithStage(&SaveArtistAlbumsJob{
-			ArtistId: artist.Id,
-		}, jobWg, stage)
 	}
 
 	return nil

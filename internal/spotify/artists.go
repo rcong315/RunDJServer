@@ -182,3 +182,66 @@ func getArtistsAlbums(artistId string, include_groups string) ([]*Album, error) 
 		zap.Int("count", len(allAlbums)))
 	return allAlbums, nil
 }
+
+// GetUsersTopArtistsStreaming fetches user's top artists and processes each page immediately
+func GetUsersTopArtistsStreaming(token string, processor func([]*Artist) error) error {
+	logger.Debug("Attempting to get user's top artists (streaming)")
+	url := fmt.Sprintf("%s/me/top/artists/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	return fetchAllResultsStreaming[UsersTopArtistsResponse](token, url, func(response *UsersTopArtistsResponse) error {
+		artists := make([]*Artist, len(response.Items))
+		for i := range response.Items {
+			artists[i] = &response.Items[i]
+		}
+		logger.Debug("Processing batch of top artists", zap.Int("count", len(artists)))
+		return processor(artists)
+	})
+}
+
+// GetUsersFollowedArtistsStreaming fetches user's followed artists and processes each page immediately
+func GetUsersFollowedArtistsStreaming(token string, processor func([]*Artist) error) error {
+	logger.Debug("Attempting to get user's followed artists (streaming)")
+	url := fmt.Sprintf("%s/me/following?type=artist&limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	return fetchAllResultsStreaming[UsersFollowedArtistsResponse](token, url, func(response *UsersFollowedArtistsResponse) error {
+		artists := make([]*Artist, len(response.Artists.Items))
+		for i := range response.Artists.Items {
+			artists[i] = &response.Artists.Items[i]
+		}
+		logger.Debug("Processing batch of followed artists", zap.Int("count", len(artists)))
+		return processor(artists)
+	})
+}
+
+// GetArtistsAlbumsAndSinglesStreaming fetches artist's albums/singles and processes each page immediately
+func GetArtistsAlbumsAndSinglesStreaming(artistId string, processor func([]*Album) error) error {
+	logger.Debug("Attempting to get albums and singles for artist (streaming)", zap.String("artistId", artistId))
+	return getArtistsAlbumsStreaming(artistId, "album,single", processor)
+}
+
+// getArtistsAlbumsStreaming is the streaming version of getArtistsAlbums
+func getArtistsAlbumsStreaming(artistId string, include_groups string, processor func([]*Album) error) error {
+	logger.Debug("Getting artist albums (streaming)", zap.String("artistId", artistId), zap.String("include_groups", include_groups))
+	token, err := getSecretToken()
+	if err != nil {
+		logger.Error("Error getting secret token for getArtistsAlbumsStreaming",
+			zap.String("artistId", artistId),
+			zap.String("include_groups", include_groups),
+			zap.Error(err))
+		return err
+	}
+
+	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, artistId, include_groups, limitMax, 0)
+
+	return fetchAllResultsStreaming[ArtistsAlbumsResponse](token, url, func(response *ArtistsAlbumsResponse) error {
+		albums := make([]*Album, len(response.Items))
+		for i := range response.Items {
+			albums[i] = &response.Items[i]
+		}
+		logger.Debug("Processing batch of artist albums",
+			zap.String("artistId", artistId),
+			zap.String("include_groups", include_groups),
+			zap.Int("count", len(albums)))
+		return processor(albums)
+	})
+}

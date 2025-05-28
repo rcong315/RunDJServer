@@ -130,6 +130,8 @@ func getNextURL(response any) string {
 		return r.Next
 	case *AlbumsTracksResponse:
 		return r.Next
+	case *UsersSavedAlbumsResponse:
+		return r.Next
 	default:
 		return ""
 	}
@@ -257,4 +259,156 @@ func fetchAllResults[T any](token string, initialURL string) ([]*T, error) {
 		}
 	}
 	return results, nil
+}
+
+// fetchAllResultsStreaming fetches paginated results and processes each page immediately
+func fetchAllResultsStreaming[T any](token string, initialURL string, processor func(*T) error) error {
+	url := initialURL
+	for {
+		response, err := fetchPaginatedItemsWithRetry[T](token, url)
+		if err != nil {
+			return fmt.Errorf("fetch failed: %w", err)
+		}
+
+		if err := processor(response); err != nil {
+			return fmt.Errorf("processor failed: %w", err)
+		}
+
+		url = getNextURL(response)
+		if url == "" {
+			break
+		}
+	}
+	return nil
+}
+
+// fetchPaginatedItemsWithRetry implements exponential backoff retry strategy
+func fetchPaginatedItemsWithRetry[T any](token string, url string) (*T, error) {
+	const maxRetries = 4
+	baseDelay := 100 * time.Millisecond
+	maxDelay := 10 * time.Second
+
+	var lastErr error
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+			time.Sleep(delay)
+		}
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			var result T
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				return nil, err
+			}
+			return &result, nil
+		}
+
+		resp.Body.Close()
+
+		// Handle rate limiting
+		if resp.StatusCode == http.StatusTooManyRequests {
+			retryAfter := 60
+			if retryHeader := resp.Header.Get("Retry-After"); retryHeader != "" {
+				if seconds, err := strconv.Atoi(retryHeader); err == nil {
+					retryAfter = seconds
+				}
+			}
+			time.Sleep(time.Duration(retryAfter) * time.Second)
+			lastErr = fmt.Errorf("rate limited")
+			continue
+		}
+
+		// Don't retry client errors except rate limiting
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return nil, fmt.Errorf("client error: %d", resp.StatusCode)
+		}
+
+		lastErr = fmt.Errorf("server error: %d", resp.StatusCode)
+	}
+
+	return nil, fmt.Errorf("max retries exceeded: %w", lastErr)
+}
+
+// BatchProcessor accumulates items and processes them in batches
+type BatchProcessor[T any] struct {
+	items     []T
+	batchSize int
+	processor func([]T) error
+}
+
+// NewBatchProcessor creates a new batch processor
+func NewBatchProcessor[T any](batchSize int, processor func([]T) error) *BatchProcessor[T] {
+	return &BatchProcessor[T]{
+		items:     make([]T, 0, batchSize),
+		batchSize: batchSize,
+		processor: processor,
+	}
+}
+
+// Add adds an item to the batch and processes if batch is full
+func (b *BatchProcessor[T]) Add(item T) error {
+	b.items = append(b.items, item)
+	if len(b.items) >= b.batchSize {
+		return b.Flush()
+	}
+	return nil
+}
+
+// Flush processes any remaining items in the batch
+func (b *BatchProcessor[T]) Flush() error {
+	if len(b.items) == 0 {
+		return nil
+	}
+	err := b.processor(b.items)
+	b.items = b.items[:0] // Reset slice but keep capacity
+	return err
+}
+
+// StreamingOptions configures streaming behavior
+type StreamingOptions struct {
+	BatchSize       int
+	ContinueOnError bool
+}
+
+// StreamingProcessorError wraps errors from the processor function
+type StreamingProcessorError struct {
+	Err error
+}
+
+func (e StreamingProcessorError) Error() string {
+	return fmt.Sprintf("streaming processor error: %v", e.Err)
+}
+
+func (e StreamingProcessorError) Unwrap() error {
+	return e.Err
+}
+
+// PartialResultError indicates some results were processed before an error occurred
+type PartialResultError struct {
+	ProcessedCount int
+	Err            error
+}
+
+func (e PartialResultError) Error() string {
+	return fmt.Sprintf("partial results: processed %d items before error: %v", e.ProcessedCount, e.Err)
+}
+
+func (e PartialResultError) Unwrap() error {
+	return e.Err
 }

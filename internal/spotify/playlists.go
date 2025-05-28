@@ -212,3 +212,50 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 	return playlist, nil
 }
+
+// GetUsersPlaylistsStreaming fetches user's playlists and processes each page immediately
+func GetUsersPlaylistsStreaming(token string, processor func([]*Playlist) error) error {
+	logger.Debug("Attempting to get user's playlists (streaming)")
+	url := fmt.Sprintf("%s/me/playlists/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	return fetchAllResultsStreaming[UsersPlaylistsResponse](token, url, func(response *UsersPlaylistsResponse) error {
+		playlists := make([]*Playlist, len(response.Items))
+		for i := range response.Items {
+			playlists[i] = &response.Items[i]
+		}
+		logger.Debug("Processing batch of playlists", zap.Int("count", len(playlists)))
+		return processor(playlists)
+	})
+}
+
+// GetPlaylistsTracksStreaming fetches playlist tracks and processes each batch with audio features
+func GetPlaylistsTracksStreaming(token string, playlistId string, processor func([]*Track) error) error {
+	logger.Debug("Attempting to get tracks for playlist (streaming)", zap.String("playlistId", playlistId))
+	url := fmt.Sprintf("%s/playlists/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, playlistId, limitMax, 0)
+
+	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
+		enrichedTracks, err := getAudioFeatures(tracks)
+		if err != nil {
+			logger.Error("Error getting audio features for playlist tracks batch", 
+				zap.String("playlistId", playlistId), 
+				zap.Int("trackCount", len(tracks)), 
+				zap.Error(err))
+		}
+		return processor(enrichedTracks)
+	})
+
+	err := fetchAllResultsStreaming[PlaylistsTracksResponse](token, url, func(response *PlaylistsTracksResponse) error {
+		for i := range response.Items {
+			if err := batcher.Add(&response.Items[i].Track); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return batcher.Flush()
+}

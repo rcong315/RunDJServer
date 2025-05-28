@@ -88,3 +88,57 @@ func GetAlbumsTracks(albumId string) ([]*Track, error) {
 	logger.Debug("Successfully retrieved album tracks with audio features", zap.String("albumId", albumId), zap.Int("count", len(allTracks)))
 	return allTracks, nil
 }
+
+// GetUsersSavedAlbumsStreaming fetches user's saved albums and processes each page immediately
+func GetUsersSavedAlbumsStreaming(token string, processor func([]*Album) error) error {
+	logger.Debug("Attempting to get user's saved albums (streaming)")
+	url := fmt.Sprintf("%s/me/albums?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	return fetchAllResultsStreaming[UsersSavedAlbumsResponse](token, url, func(response *UsersSavedAlbumsResponse) error {
+		albums := make([]*Album, len(response.Items))
+		for i := range response.Items {
+			albums[i] = &response.Items[i].Album
+		}
+		logger.Debug("Processing batch of saved albums", zap.Int("count", len(albums)))
+		return processor(albums)
+	})
+}
+
+// GetAlbumsTracksStreaming fetches album tracks and processes each page immediately
+func GetAlbumsTracksStreaming(albumId string, processor func([]*Track) error) error {
+	logger.Debug("Attempting to get tracks for album (streaming)", zap.String("albumId", albumId))
+	token, err := getSecretToken()
+	if err != nil {
+		logger.Error("Error getting secret token for GetAlbumsTracksStreaming", zap.String("albumId", albumId), zap.Error(err))
+		return err
+	}
+
+	url := fmt.Sprintf("%s/albums/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, albumId, limitMax, 0)
+
+	// Use audio feature batcher for tracks
+	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
+		enrichedTracks, err := getAudioFeatures(tracks)
+		if err != nil {
+			logger.Error("Error getting audio features for album tracks batch",
+				zap.String("albumId", albumId),
+				zap.Int("trackCount", len(tracks)),
+				zap.Error(err))
+		}
+		return processor(enrichedTracks)
+	})
+
+	err = fetchAllResultsStreaming[AlbumsTracksResponse](token, url, func(response *AlbumsTracksResponse) error {
+		for i := range response.Items {
+			if err := batcher.Add(&response.Items[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return batcher.Flush()
+}

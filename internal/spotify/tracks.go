@@ -119,6 +119,68 @@ func GetUsersSavedTracks(token string) ([]*Track, error) {
 	return allTracks, err
 }
 
+// GetUsersTopTracksStreaming fetches user's top tracks and processes each batch with audio features
+func GetUsersTopTracksStreaming(token string, processor func([]*Track) error) error {
+	logger.Debug("Attempting to get user's top tracks (streaming)")
+	url := fmt.Sprintf("%s/me/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
+		enrichedTracks, err := getAudioFeatures(tracks)
+		if err != nil {
+			logger.Error("Error getting audio features for top tracks batch", 
+				zap.Int("trackCount", len(tracks)), 
+				zap.Error(err))
+		}
+		return processor(enrichedTracks)
+	})
+
+	err := fetchAllResultsStreaming[UsersTopTracksResponse](token, url, func(response *UsersTopTracksResponse) error {
+		for i := range response.Items {
+			if err := batcher.Add(&response.Items[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return batcher.Flush()
+}
+
+// GetUsersSavedTracksStreaming fetches user's saved tracks and processes each batch with audio features
+func GetUsersSavedTracksStreaming(token string, processor func([]*Track) error) error {
+	logger.Debug("Attempting to get user's saved tracks (streaming)")
+	url := fmt.Sprintf("%s/me/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
+		enrichedTracks, err := getAudioFeatures(tracks)
+		if err != nil {
+			logger.Error("Error getting audio features for saved tracks batch", 
+				zap.Int("trackCount", len(tracks)), 
+				zap.Error(err))
+		}
+		return processor(enrichedTracks)
+	})
+
+	err := fetchAllResultsStreaming[UsersSavedTracksResponse](token, url, func(response *UsersSavedTracksResponse) error {
+		for i := range response.Items {
+			if err := batcher.Add(&response.Items[i].Track); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return batcher.Flush()
+}
+
 func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	if len(tracks) == 0 {
 		logger.Debug("getAudioFeatures: No tracks provided to fetch audio features for.")
