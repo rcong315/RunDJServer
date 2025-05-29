@@ -10,8 +10,8 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
-func createTrackBatcher(userId string, tracker *ProcessedTracker) *spotify.BatchProcessor[*spotify.Track] {
-	return spotify.NewBatchProcessor[*spotify.Track](500, func(tracks []*spotify.Track) error {
+func createTrackBatcher(parentType string, parentId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Track) error) *spotify.BatchProcessor[*spotify.Track] {
+	return spotify.NewBatchProcessor[*spotify.Track](100, func(tracks []*spotify.Track) error {
 		dbTracks := convertSpotifyTracksToDBTracks(tracks)
 		var tracksToSave []*db.Track
 		for _, track := range dbTracks {
@@ -20,23 +20,19 @@ func createTrackBatcher(userId string, tracker *ProcessedTracker) *spotify.Batch
 			}
 		}
 
-		if err := db.SaveTracks(tracksToSave); err != nil {
-			logger.Error("Error saving top tracks batch to DB",
-				zap.String("userId", userId),
-				zap.Error(err))
-			return fmt.Errorf("saving tracks batch: %w", err)
+		if len(tracksToSave) > 0 {
+			if err := db.SaveTracks(tracksToSave); err != nil {
+				return fmt.Errorf("saving tracks batch: %w", err)
+			}
+			logger.Debug("Saved batch of tracks to DB",
+				zap.String(parentType, parentId))
 		}
-		logger.Debug("Saved batch of tracks to DB",
-			zap.String("userId", userId))
 
-		if err := db.SaveUserTopTracks(userId, dbTracks); err != nil {
-			logger.Error("Error saving user-top track relations to DB",
-				zap.String("userId", userId),
-				zap.Error(err))
-			return fmt.Errorf("saving user-track relations: %w", err)
+		if err := saveRelation(parentId, dbTracks); err != nil {
+			return fmt.Errorf("saving track relations: %w", err)
 		}
-		logger.Debug("Saved user-top track relations to DB",
-			zap.String("userId", userId))
+		logger.Debug("Saved track relations to DB",
+			zap.String(parentType, parentId))
 
 		return nil
 	})
@@ -46,11 +42,14 @@ func processTopTracks(userId string, token string, pool *WorkerPool, tracker *Pr
 	logger.Debug("Processing user top tracks",
 		zap.String("userId", userId))
 
-	dbBatcher := createTrackBatcher(userId, tracker)
+	trackBatcher := createTrackBatcher("user", userId, tracker, db.SaveUserTopTracks)
 
+	// TODO: fix ranking
 	err := spotify.GetUsersTopTracks(token, func(tracks []*spotify.Track) error {
 		for _, track := range tracks {
-			dbBatcher.Add(track)
+			if err := trackBatcher.Add(track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
+			}
 		}
 		return nil
 	})
@@ -58,7 +57,7 @@ func processTopTracks(userId string, token string, pool *WorkerPool, tracker *Pr
 		return fmt.Errorf("getting top tracks: %w", err)
 	}
 
-	if err := dbBatcher.Flush(); err != nil {
+	if err := trackBatcher.Flush(); err != nil {
 		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
@@ -71,11 +70,13 @@ func processSavedTracks(userId string, token string, pool *WorkerPool, tracker *
 	logger.Debug("Processing user saved tracks",
 		zap.String("userId", userId))
 
-	dbBatcher := createTrackBatcher(userId, tracker)
+	trackBatcher := createTrackBatcher("user", userId, tracker, db.SaveUserSavedTracks)
 
 	err := spotify.GetUsersSavedTracks(token, func(tracks []*spotify.Track) error {
 		for _, track := range tracks {
-			dbBatcher.Add(track)
+			if err := trackBatcher.Add(track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
+			}
 		}
 		return nil
 	})
@@ -83,7 +84,7 @@ func processSavedTracks(userId string, token string, pool *WorkerPool, tracker *
 		return fmt.Errorf("getting saved tracks: %w", err)
 	}
 
-	if err := dbBatcher.Flush(); err != nil {
+	if err := trackBatcher.Flush(); err != nil {
 		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 

@@ -49,7 +49,7 @@ func processAll(token string, userId string) {
 
 		processAndCollectErrors := func(name string, processFunc func(string, string, *WorkerPool, *ProcessedTracker, *sync.WaitGroup, *StageContext) error) {
 			funcStart := time.Now()
-			
+
 			// Create a stage-specific wait group
 			stageWg := &sync.WaitGroup{}
 			stageCtx := &StageContext{
@@ -62,7 +62,7 @@ func processAll(token string, userId string) {
 				allErrors = append(allErrors, err)
 				errorMu.Unlock()
 			}
-			
+
 			// Wait for all jobs in this stage to complete
 			stageWg.Wait()
 
@@ -75,9 +75,9 @@ func processAll(token string, userId string) {
 		processAndCollectErrors("topTracks", processTopTracks)
 		processAndCollectErrors("savedTracks", processSavedTracks)
 		processAndCollectErrors("playlists", processPlaylists)
-		processAndCollectErrors("topArtists", processTopArtists)
-		processAndCollectErrors("followedArtists", processFollowedArtists)
-		processAndCollectErrors("savedAlbums", processSavedAlbums)
+		// go processAndCollectErrors("topArtists", processTopArtists)
+		// go processAndCollectErrors("followedArtists", processFollowedArtists)
+		// go processAndCollectErrors("savedAlbums", processSavedAlbums)
 
 		jobWg.Wait()
 		pool.Stop()

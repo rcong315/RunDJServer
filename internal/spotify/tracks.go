@@ -71,10 +71,12 @@ func createAudioFeaturesBatcher(processor func([]*Track) error) *BatchProcessor[
 		if err != nil {
 			return fmt.Errorf("getting audio features batch: %w", err)
 		}
+		logger.Debug("Got audio features for batch")
 
 		if err := processor(enrichedTracks); err != nil {
 			return fmt.Errorf("processing enriched tracks: %w", err)
 		}
+		logger.Debug("Processed batch of enriched tracks")
 
 		return nil
 	})
@@ -85,11 +87,11 @@ func GetUsersTopTracks(token string, processor func([]*Track) error) error {
 
 	url := fmt.Sprintf("%s/me/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
-	batcher := createAudioFeaturesBatcher(processor)
+	audioFeaturesBatcher := createAudioFeaturesBatcher(processor)
 
 	err := fetchAllResultsStreaming[UsersTopTracksResponse](token, url, func(response *UsersTopTracksResponse) error {
 		for i := range response.Items {
-			if err := batcher.Add(&response.Items[i]); err != nil {
+			if err := audioFeaturesBatcher.Add(&response.Items[i]); err != nil {
 				return fmt.Errorf("adding track to batch: %w", err)
 			}
 		}
@@ -99,7 +101,7 @@ func GetUsersTopTracks(token string, processor func([]*Track) error) error {
 		return fmt.Errorf("fetching top tracks: %w", err)
 	}
 
-	if err := batcher.Flush(); err != nil {
+	if err := audioFeaturesBatcher.Flush(); err != nil {
 		return fmt.Errorf("flushing reamaing tracks: %w", err)
 	}
 
@@ -112,29 +114,21 @@ func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
 
 	url := fmt.Sprintf("%s/me/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
-	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
-		enrichedTracks, err := getAudioFeatures(tracks)
-		if err != nil {
-			logger.Error("Error getting audio features for saved tracks batch",
-				zap.Int("trackCount", len(tracks)),
-				zap.Error(err))
-		}
-		return processor(enrichedTracks)
-	})
+	audioFeaturesBatcher := createAudioFeaturesBatcher(processor)
 
 	err := fetchAllResultsStreaming[UsersSavedTracksResponse](token, url, func(response *UsersSavedTracksResponse) error {
 		for i := range response.Items {
-			if err := batcher.Add(&response.Items[i].Track); err != nil {
-				return err
+			if err := audioFeaturesBatcher.Add(&response.Items[i].Track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("fetching saved tracks: %w", err)
 	}
 
-	if err := batcher.Flush(); err != nil {
+	if err := audioFeaturesBatcher.Flush(); err != nil {
 		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
@@ -142,6 +136,7 @@ func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
 	return nil
 }
 
+// TODO: review
 func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	if len(tracks) == 0 {
 		logger.Debug("getAudioFeatures: No tracks provided to fetch audio features for.")
@@ -214,6 +209,7 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	return tracks, nil // Return the modified original slice
 }
 
+// TODO: review
 func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxTempo float64) ([]*Track, error) {
 	logger.Debug("Attempting to get recommendations",
 		zap.Strings("seedArtists", seedArtists),
