@@ -65,101 +65,58 @@ type AudioFeaturesResponse struct {
 	AudioFeatures []AudioFeatures `json:"audio_features"`
 }
 
-func GetUsersTopTracks(token string) ([]*Track, error) {
-	logger.Debug("Attempting to get user's top tracks")
-	url := fmt.Sprintf("%s/me/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
-
-	responses, err := fetchAllResults[UsersTopTracksResponse](token, url)
-	if err != nil {
-		logger.Error("Error fetching user's top tracks", zap.Error(err), zap.String("url", url))
-		return nil, err
-	}
-
-	var allTracks []*Track
-	for _, response := range responses {
-		for i := range response.Items {
-			allTracks = append(allTracks, &response.Items[i])
-		}
-	}
-	logger.Debug("Successfully retrieved initial user's top tracks list", zap.Int("count", len(allTracks)))
-
-	allTracks, err = getAudioFeatures(allTracks)
-	if err != nil {
-		logger.Error("Error getting audio features for user's top tracks", zap.Int("trackCount", len(allTracks)), zap.Error(err))
-		// Return tracks even if audio features fail for some
-	}
-	logger.Debug("Successfully retrieved user's top tracks with audio features", zap.Int("count", len(allTracks)))
-	return allTracks, err
-}
-
-func GetUsersSavedTracks(token string) ([]*Track, error) {
-	logger.Debug("Attempting to get user's saved tracks")
-	url := fmt.Sprintf("%s/me/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
-
-	responses, err := fetchAllResults[UsersSavedTracksResponse](token, url)
-	if err != nil {
-		logger.Error("Error fetching user's saved tracks", zap.Error(err), zap.String("url", url))
-		return nil, err
-	}
-
-	var allTracks []*Track
-	for _, response := range responses {
-		for i := range response.Items {
-			allTracks = append(allTracks, &response.Items[i].Track)
-		}
-	}
-	logger.Debug("Successfully retrieved initial user's saved tracks list", zap.Int("count", len(allTracks)))
-
-	allTracks, err = getAudioFeatures(allTracks)
-	if err != nil {
-		logger.Error("Error getting audio features for user's saved tracks", zap.Int("trackCount", len(allTracks)), zap.Error(err))
-		// Return tracks even if audio features fail for some
-	}
-	logger.Debug("Successfully retrieved user's saved tracks with audio features", zap.Int("count", len(allTracks)))
-	return allTracks, err
-}
-
-// GetUsersTopTracksStreaming fetches user's top tracks and processes each batch with audio features
-func GetUsersTopTracksStreaming(token string, processor func([]*Track) error) error {
-	logger.Debug("Attempting to get user's top tracks (streaming)")
-	url := fmt.Sprintf("%s/me/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
-
-	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
+func createAudioFeaturesBatcher(processor func([]*Track) error) *BatchProcessor[*Track] {
+	return NewBatchProcessor[*Track](100, func(tracks []*Track) error {
 		enrichedTracks, err := getAudioFeatures(tracks)
 		if err != nil {
-			logger.Error("Error getting audio features for top tracks batch", 
-				zap.Int("trackCount", len(tracks)), 
-				zap.Error(err))
+			return fmt.Errorf("getting audio features batch: %w", err)
 		}
-		return processor(enrichedTracks)
+
+		if err := processor(enrichedTracks); err != nil {
+			return fmt.Errorf("processing enriched tracks: %w", err)
+		}
+
+		return nil
 	})
+}
+
+func GetUsersTopTracks(token string, processor func([]*Track) error) error {
+	logger.Debug("Attempting to get user's top tracks")
+
+	url := fmt.Sprintf("%s/me/top/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
+
+	batcher := createAudioFeaturesBatcher(processor)
 
 	err := fetchAllResultsStreaming[UsersTopTracksResponse](token, url, func(response *UsersTopTracksResponse) error {
 		for i := range response.Items {
 			if err := batcher.Add(&response.Items[i]); err != nil {
-				return err
+				return fmt.Errorf("adding track to batch: %w", err)
 			}
 		}
 		return nil
 	})
-
 	if err != nil {
-		return err
+		return fmt.Errorf("fetching top tracks: %w", err)
 	}
 
-	return batcher.Flush()
+	if err := batcher.Flush(); err != nil {
+		return fmt.Errorf("flushing reamaing tracks: %w", err)
+	}
+
+	logger.Debug("Successfully retrieved user's top tracks")
+	return nil
 }
 
-// GetUsersSavedTracksStreaming fetches user's saved tracks and processes each batch with audio features
-func GetUsersSavedTracksStreaming(token string, processor func([]*Track) error) error {
-	logger.Debug("Attempting to get user's saved tracks (streaming)")
+func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
+	logger.Debug("Attempting to get user's saved tracks")
+
 	url := fmt.Sprintf("%s/me/tracks/?limit=%d&offset=%d", spotifyAPIURL, limitMax, 0)
 
 	batcher := NewBatchProcessor[*Track](100, func(tracks []*Track) error {
 		enrichedTracks, err := getAudioFeatures(tracks)
 		if err != nil {
-			logger.Error("Error getting audio features for saved tracks batch", 
-				zap.Int("trackCount", len(tracks)), 
+			logger.Error("Error getting audio features for saved tracks batch",
+				zap.Int("trackCount", len(tracks)),
 				zap.Error(err))
 		}
 		return processor(enrichedTracks)
@@ -173,12 +130,16 @@ func GetUsersSavedTracksStreaming(token string, processor func([]*Track) error) 
 		}
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}
 
-	return batcher.Flush()
+	if err := batcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining tracks: %w", err)
+	}
+
+	logger.Debug("Successfully retrieved user's saved tracks")
+	return nil
 }
 
 func getAudioFeatures(tracks []*Track) ([]*Track, error) {
