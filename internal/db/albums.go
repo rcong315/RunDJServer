@@ -42,7 +42,6 @@ func SaveAlbums(albums []*Album) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving albums batch", zap.Int("count", len(albums)), zap.Error(err))
 		return fmt.Errorf("error saving albums: %v", err)
 	}
 
@@ -65,10 +64,6 @@ func SaveUserSavedAlbums(userId string, albums []*Album) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving user-saved album associations batch",
-			zap.String("userId", userId),
-			zap.Int("count", len(albums)),
-			zap.Error(err))
 		return fmt.Errorf("error saving user saved albums: %v", err)
 	}
 
@@ -91,10 +86,6 @@ func SaveAlbumTracks(albumId string, tracks []*Track) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving album-track associations batch",
-			zap.String("albumId", albumId),
-			zap.Int("trackCount", len(tracks)),
-			zap.Error(err))
 		return fmt.Errorf("error saving album tracks: %v", err)
 	}
 

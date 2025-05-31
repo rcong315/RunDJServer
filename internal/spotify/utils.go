@@ -235,11 +235,6 @@ func fetchPaginatedItems[T any](token string, url string) (*T, error) {
 		}
 	}
 
-	// If we get here, all retries failed
-	logger.Error("All Spotify request attempts failed",
-		zap.Int("attempts", maxRetries),
-		zap.String("url", url),
-		zap.Error(lastErr))
 	return nil, fmt.Errorf("all %d attempts failed, last error: %v", maxRetries, lastErr)
 }
 
@@ -375,7 +370,7 @@ func (b *BatchProcessor[T]) Flush() error {
 	}
 	err := b.processor(b.items)
 	b.items = b.items[:0] // Reset slice but keep capacity
-	return err
+	return fmt.Errorf("flushing batch: %w", err)
 }
 
 // StreamingOptions configures streaming behavior

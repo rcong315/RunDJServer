@@ -29,11 +29,9 @@ func GetUser(token string) (*User, error) {
 
 	responses, err := fetchAllResults[User](token, url)
 	if err != nil {
-		logger.Error("Error fetching user details", zap.Error(err), zap.String("url", url))
-		return nil, err
+		return nil, fmt.Errorf("fetching user details: %w", err)
 	}
 	if len(responses) == 0 || responses[0] == nil {
-		logger.Error("No user found in response", zap.String("url", url))
 		return nil, fmt.Errorf("no user found")
 	}
 

@@ -107,15 +107,13 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 	}
 	jsonData, err := json.Marshal(postData)
 	if err != nil {
-		logger.Error("Error marshalling create playlist data", zap.Error(err), zap.Any("postData", postData))
-		return nil, err
+		return nil, fmt.Errorf("marshalling create playlist data: %w", err)
 	}
 	logger.Debug("Create playlist request body", zap.ByteString("jsonData", jsonData))
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		logger.Error("Error creating POST request for create playlist", zap.Error(err), zap.String("url", url))
-		return nil, err
+		return nil, fmt.Errorf("creating POST request for create playlist: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -126,37 +124,29 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Error("Error sending create playlist request", zap.Error(err), zap.String("url", url))
-		return nil, err
+		return nil, fmt.Errorf("sending create playlist request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Error("Error reading create playlist response body", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("reading create playlist response body: %w", err)
 	}
 	bodyString := string(bodyBytes)
 	logger.Debug("Create playlist response body", zap.String("body", bodyString), zap.Int("statusCode", resp.StatusCode))
 
 	if resp.StatusCode != http.StatusCreated {
-		logger.Error("Failed to create playlist, non-201 status",
-			zap.Int("statusCode", resp.StatusCode),
-			zap.String("responseBody", bodyString),
-			zap.String("url", url))
-		return nil, fmt.Errorf("failed to create playlist: %s (status %d)", bodyString, resp.StatusCode)
+		return nil, fmt.Errorf("creating playlist: status %d, body: %s", resp.StatusCode, bodyString)
 	}
 
 	playlist := &Playlist{}
 	err = json.Unmarshal(bodyBytes, playlist)
 	if err != nil {
-		logger.Error("Error unmarshalling create playlist response", zap.Error(err), zap.String("responseBody", bodyString))
-		return nil, err
+		return nil, fmt.Errorf("unmarshalling create playlist response: %w", err)
 	}
 	playlistId := playlist.Id
 	if playlistId == "" {
-		logger.Error("Failed to parse playlist ID from create playlist response", zap.String("responseBody", bodyString))
-		return nil, fmt.Errorf("failed to parse playlist ID from response: %s", bodyString)
+		return nil, fmt.Errorf("parsing playlist ID from response: %s", bodyString)
 	}
 	logger.Debug("Successfully created playlist", zap.String("playlistId", playlistId), zap.String("userId", userId), zap.String("name", name))
 
@@ -176,15 +166,13 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 				"uris": ids,
 			})
 			if err != nil {
-				logger.Error("Error marshalling add tracks data", zap.Error(err), zap.String("playlistId", playlistId))
-				return playlist, err // Return created playlist even if adding tracks fails partially
+				return playlist, fmt.Errorf("marshalling add tracks data: %w", err)
 			}
 			logger.Debug("Add tracks request body", zap.ByteString("jsonData", addTracksJsonData))
 
 			addTracksReq, err := http.NewRequest("POST", addTracksURL, bytes.NewBuffer(addTracksJsonData))
 			if err != nil {
-				logger.Error("Error creating POST request for add tracks", zap.Error(err), zap.String("url", addTracksURL))
-				return playlist, err
+				return playlist, fmt.Errorf("creating POST request for add tracks: %w", err)
 			}
 
 			addTracksReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -193,18 +181,13 @@ func CreatePlaylist(token string, userId string, bpm float64, min float64, max f
 
 			addTracksResp, err := client.Do(addTracksReq)
 			if err != nil {
-				logger.Error("Error sending add tracks request", zap.Error(err), zap.String("url", addTracksURL))
-				return playlist, err
+				return playlist, fmt.Errorf("sending add tracks request: %w", err)
 			}
 			defer addTracksResp.Body.Close() // Defer inside loop is okay for non-critical resources
 
 			if addTracksResp.StatusCode != http.StatusCreated && addTracksResp.StatusCode != http.StatusOK { // Some APIs use 200 for adding items
 				addTracksBodyBytes, _ := io.ReadAll(addTracksResp.Body) // Read body for error logging
-				logger.Error("Failed to add tracks to playlist, non-20x status",
-					zap.Int("statusCode", addTracksResp.StatusCode),
-					zap.ByteString("responseBody", addTracksBodyBytes),
-					zap.String("url", addTracksURL))
-				return playlist, fmt.Errorf("failed to add tracks to playlist: status %d, body: %s", addTracksResp.StatusCode, string(addTracksBodyBytes))
+				return playlist, fmt.Errorf("adding tracks to playlist %s: status %d, body: %s", playlistId, addTracksResp.StatusCode, string(addTracksBodyBytes))
 			}
 			logger.Debug("Successfully added batch of tracks to playlist", zap.String("playlistId", playlistId), zap.Int("batchSize", len(ids)))
 		}

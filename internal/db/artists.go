@@ -34,7 +34,6 @@ func SaveArtists(artists []*Artist) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving artists batch", zap.Int("count", len(artists)), zap.Error(err))
 		return fmt.Errorf("error saving artists: %v", err)
 	}
 
@@ -58,10 +57,6 @@ func SaveUserTopArtists(userId string, artists []*Artist) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving user-top artist associations batch",
-			zap.String("userId", userId),
-			zap.Int("count", len(artists)),
-			zap.Error(err))
 		return fmt.Errorf("error saving user top artists: %v", err)
 	}
 
@@ -84,10 +79,6 @@ func SaveUserFollowedArtists(userId string, artists []*Artist) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving user-followed artist associations batch",
-			zap.String("userId", userId),
-			zap.Int("count", len(artists)),
-			zap.Error(err))
 		return fmt.Errorf("error saving user followed artists: %v", err)
 	}
 
@@ -111,10 +102,6 @@ func SaveArtistTopTracks(artistId string, tracks []*Track) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving artist-top track associations batch",
-			zap.String("artistId", artistId),
-			zap.Int("trackCount", len(tracks)),
-			zap.Error(err))
 		return fmt.Errorf("error saving artist top tracks: %v", err)
 	}
 
@@ -137,10 +124,6 @@ func SaveArtistAlbums(artistId string, albums []*Album) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving artist-album associations batch",
-			zap.String("artistId", artistId),
-			zap.Int("albumCount", len(albums)),
-			zap.Error(err))
 		return fmt.Errorf("error saving artist albums: %v", err)
 	}
 

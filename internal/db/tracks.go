@@ -75,7 +75,6 @@ func SaveTracks(tracks []*Track) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving tracks batch", zap.Int("count", len(tracks)), zap.Error(err))
 		return fmt.Errorf("error saving tracks: %v", err)
 	}
 
@@ -99,10 +98,6 @@ func SaveUserTopTracks(userId string, tracks []*Track) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving user top tracks batch",
-			zap.String("userId", userId),
-			zap.Int("count", len(tracks)),
-			zap.Error(err))
 		return fmt.Errorf("error saving user top tracks: %v", err)
 	}
 
@@ -125,10 +120,6 @@ func SaveUserSavedTracks(userId string, tracks []*Track) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving user saved tracks batch",
-			zap.String("userId", userId),
-			zap.Int("count", len(tracks)),
-			zap.Error(err))
 		return fmt.Errorf("error saving user saved tracks: %v", err)
 	}
 
@@ -170,11 +161,6 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 
 		rows, err := executeSelect(queryName, userId, min, max)
 		if err != nil {
-			logger.Error("GetTracksByBPM: Error executing select for source",
-				zap.String("userId", userId),
-				zap.String("source", source),
-				zap.String("queryName", queryName),
-				zap.Error(err))
 			return nil, fmt.Errorf("error executing select for source %s: %v", source, err)
 		}
 
@@ -185,10 +171,6 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 			err := rows.Scan(&track, &bpm)
 			if err != nil {
 				rows.Close() // Ensure rows is closed on scan error
-				logger.Error("GetTracksByBPM: Error scanning track for source",
-					zap.String("userId", userId),
-					zap.String("source", source),
-					zap.Error(err))
 				return nil, fmt.Errorf("error scanning track for source %s: %v", source, err)
 			}
 			tracks[track] = bpm
@@ -215,16 +197,11 @@ func SaveFeedback(userId string, trackId string, feedback int) error {
 
 	sqlQuery, err := getQueryString("update", "feedback")
 	if err != nil {
-		logger.Error("SaveFeedback: Error getting query string for 'feedback'", zap.Error(err))
 		return fmt.Errorf("error getting query string: %v", err)
 	}
 
 	db, err := getDB()
 	if err != nil {
-		logger.Error("SaveFeedback: Database connection error",
-			zap.String("userId", userId),
-			zap.String("trackId", trackId),
-			zap.Error(err))
 		return fmt.Errorf("database connection error: %v", err)
 	}
 
@@ -234,11 +211,6 @@ func SaveFeedback(userId string, trackId string, feedback int) error {
 		feedback,
 	)
 	if err != nil {
-		logger.Error("SaveFeedback: Error creating feedback record",
-			zap.String("userId", userId),
-			zap.String("trackId", trackId),
-			zap.Int("feedback", feedback),
-			zap.Error(err))
 		return fmt.Errorf("error creating feedback record: %v", err)
 	}
 

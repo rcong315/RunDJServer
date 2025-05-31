@@ -89,11 +89,7 @@ func getArtistsAlbums(artistId string, include_groups string, processor func([]*
 	logger.Debug("Getting artist albums", zap.String("artistId", artistId), zap.String("include_groups", include_groups))
 	token, err := getSecretToken()
 	if err != nil {
-		logger.Error("Error getting secret token for getArtistsAlbums",
-			zap.String("artistId", artistId),
-			zap.String("include_groups", include_groups),
-			zap.Error(err))
-		return err
+		return fmt.Errorf("getting secret token: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/artists/%s/albums?include_groups=%s&limit=%d&offset=%d", spotifyAPIURL, artistId, include_groups, limitMax, 0)
@@ -122,7 +118,7 @@ func GetArtistsTopTracks(artistId string, processor func([]*Track) error) error 
 		zap.String("artistId", artistId))
 	token, err := getSecretToken()
 	if err != nil {
-		return fmt.Errorf("getting secret token for artist %s: %w", artistId, err)
+		return fmt.Errorf("getting secret token: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/artists/%s/top-tracks", spotifyAPIURL, artistId)

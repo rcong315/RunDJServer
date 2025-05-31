@@ -38,40 +38,28 @@ func fetchNewToken() (string, time.Time, error) {
 
 	apiURL := os.Getenv("TOKEN_URL")
 	if apiURL == "" {
-		logger.Error("TOKEN_URL environment variable not set")
 		return "", time.Time{}, errors.New("TOKEN_URL environment variable not set")
 	}
 	url := apiURL + "/token"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		logger.Error("Failed to create HTTP request for new token", zap.String("url", url), zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to create request for %s: %w", url, err)
 	}
 	req.Header.Add("Accept", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		logger.Error("Failed to execute request for new token", zap.String("url", url), zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to execute request to %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Error("Failed to read new token response body",
-			zap.Int("statusCode", resp.StatusCode),
-			zap.String("url", url),
-			zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to read response body (status %d) from %s: %w", resp.StatusCode, url, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		logger.Error("Received non-OK status for new token request",
-			zap.Int("statusCode", resp.StatusCode),
-			zap.String("status", http.StatusText(resp.StatusCode)),
-			zap.String("url", url),
-			zap.ByteString("responseBody", bodyBytes))
 		return "", time.Time{}, fmt.Errorf("received non-OK status code %d (%s) from %s: %s",
 			resp.StatusCode, http.StatusText(resp.StatusCode), url, string(bodyBytes))
 	}
@@ -79,22 +67,12 @@ func fetchNewToken() (string, time.Time, error) {
 	var result SecretTokenResponse
 	err = json.Unmarshal(bodyBytes, &result)
 	if err != nil {
-		logger.Error("Failed to unmarshal new token JSON response",
-			zap.String("url", url),
-			zap.ByteString("responseBody", bodyBytes),
-			zap.Error(err))
 		return "", time.Time{}, fmt.Errorf("failed to unmarshal token JSON response from %s: %w. Body: %s", url, err, string(bodyBytes))
 	}
 	if result.Token == "" {
-		logger.Error("Parsed access token is empty in new token response",
-			zap.String("url", url),
-			zap.ByteString("responseBody", bodyBytes))
 		return "", time.Time{}, fmt.Errorf("parsed access token is empty in response from %s. Body: %s", url, string(bodyBytes))
 	}
 	if result.ExpiresMs <= 0 {
-		logger.Error("Invalid expiration timestamp received for new token",
-			zap.Int64("expiresMs", result.ExpiresMs),
-			zap.String("url", url))
 		return "", time.Time{}, fmt.Errorf("invalid expiration timestamp %d received from %s", result.ExpiresMs, url)
 	}
 
@@ -162,7 +140,6 @@ func getSecretToken() (string, error) {
 
 	// If fetch failed, store the error and return it. Don't update token/expiry.
 	if err != nil {
-		logger.Error("Failed to fetch new token during locked refresh", zap.Error(err))
 		tokenCache.fetchErr = err // Store the fetch error
 		return "", err
 	}

@@ -37,7 +37,6 @@ func SavePlaylists(playlists []*Playlist) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving playlists batch", zap.Int("count", len(playlists)), zap.Error(err))
 		return fmt.Errorf("error saving playlists: %v", err)
 	}
 
@@ -60,10 +59,6 @@ func SaveUserPlaylists(userId string, playlists []*Playlist) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving user-playlist associations batch",
-			zap.String("userId", userId),
-			zap.Int("count", len(playlists)),
-			zap.Error(err))
 		return fmt.Errorf("error saving user playlists: %v", err)
 	}
 
@@ -86,10 +81,6 @@ func SavePlaylistTracks(playlistId string, tracks []*Track) error {
 		}
 	})
 	if err != nil {
-		logger.Error("Error saving playlist-track associations batch",
-			zap.String("playlistId", playlistId),
-			zap.Int("trackCount", len(tracks)),
-			zap.Error(err))
 		return fmt.Errorf("error saving playlist tracks: %v", err)
 	}
 

@@ -112,8 +112,7 @@ func processAll(token string, userId string) {
 				zap.Int("errorCount", len(allErrors)),
 				zap.Duration("duration", duration),
 				zap.String("durationFormatted", duration.String()),
-				zap.Errors("errors", allErrors),
-			)
+				zap.Errors("errors", allErrors))
 		} else {
 			logger.Info("Background data processing finished successfully",
 				zap.String("userId", userId),

@@ -102,7 +102,7 @@ func GetUsersTopTracks(token string, processor func([]*Track) error) error {
 	}
 
 	if err := audioFeaturesBatcher.Flush(); err != nil {
-		return fmt.Errorf("flushing reamaing tracks: %w", err)
+		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
 	logger.Debug("Retrieved user's top tracks")
@@ -145,8 +145,7 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	logger.Debug("Attempting to get audio features for tracks", zap.Int("trackCount", len(tracks)))
 	token, err := getSecretToken()
 	if err != nil {
-		logger.Error("Error getting secret token for getAudioFeatures", zap.Error(err))
-		return tracks, err // Return original tracks if token fails
+		return nil, fmt.Errorf("getting secret token: %w", err)
 	}
 
 	trackMap := make(map[string]*Track)
