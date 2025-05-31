@@ -10,97 +10,85 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
+func createTrackBatcher(parentType string, parentId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Track) error) *spotify.BatchProcessor[*spotify.Track] {
+	return spotify.NewBatchProcessor(100, func(tracks []*spotify.Track) error {
+		dbTracks := convertSpotifyTracksToDBTracks(tracks)
+		var tracksToSave []*db.Track
+		for _, track := range dbTracks {
+			if !tracker.CheckAndMark("track", track.TrackId) {
+				tracksToSave = append(tracksToSave, track)
+			}
+		}
+
+		if len(tracksToSave) > 0 {
+			if err := db.SaveTracks(tracksToSave); err != nil {
+				return fmt.Errorf("saving tracks batch: %w", err)
+			}
+			logger.Debug("Saved batch of tracks to DB",
+				zap.String(parentType, parentId))
+		}
+
+		if err := saveRelation(parentId, dbTracks); err != nil {
+			return fmt.Errorf("saving track relations: %w", err)
+		}
+
+		logger.Debug("Saved track relations to DB",
+			zap.String(parentType, parentId))
+		return nil
+	})
+}
+
 func processTopTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
-	logger.Debug("Processing user top tracks", zap.String("userId", userId))
-	usersTopTracks, err := spotify.GetUsersTopTracks(token)
+	logger.Debug("Processing user top tracks",
+		zap.String("userId", userId))
+
+	trackBatcher := createTrackBatcher("user", userId, tracker, db.SaveUserTopTracks)
+
+	// TODO: fix ranking
+	err := spotify.GetUsersTopTracks(token, func(tracks []*spotify.Track) error {
+		for _, track := range tracks {
+			if err := trackBatcher.Add(track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		logger.Error("Error getting user top tracks from Spotify", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting top tracks: %w", err)
 	}
-	if len(usersTopTracks) == 0 {
-		logger.Debug("No top tracks found for user from Spotify", zap.String("userId", userId))
-		return nil
-	}
-	logger.Debug("Retrieved user top tracks from Spotify", zap.String("userId", userId), zap.Int("count", len(usersTopTracks)))
 
-	dbTracks := convertSpotifyTracksToDBTracks(usersTopTracks)
-	var tracksToSave []*db.Track
-	for _, track := range dbTracks {
-		if track != nil && track.TrackId != "" && !tracker.CheckAndMark("track", track.TrackId) {
-			tracksToSave = append(tracksToSave, track)
-		}
-	}
-	logger.Debug("Top tracks to save after deduplication", zap.String("userId", userId), zap.Int("tracksToSaveCount", len(tracksToSave)), zap.Int("originalDbTrackCount", len(dbTracks)))
-
-	if len(tracksToSave) > 0 {
-		err = db.SaveTracks(tracksToSave) // db.SaveTracks should have its own logging
-		if err != nil {
-			logger.Error("Error saving top tracks to DB",
-				zap.String("userId", userId),
-				zap.Int("tracksToSaveCount", len(tracksToSave)),
-				zap.Error(err))
-			return fmt.Errorf("saving tracks: %w, tracks: %d", err, len(tracksToSave))
-		}
+	if err := trackBatcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
-	// db.SaveUserTopTracks should have its own logging
-	err = db.SaveUserTopTracks(userId, dbTracks)
-	if err != nil {
-		logger.Error("Error saving user-top track relations to DB",
-			zap.String("userId", userId),
-			zap.Int("dbTrackCount", len(dbTracks)),
-			zap.Error(err))
-		return fmt.Errorf("saving user-track relations: %w, tracks: %d", err, len(dbTracks))
-	}
-
-	logger.Debug("Finished processing user top tracks", zap.String("userId", userId))
+	logger.Debug("Processed user top tracks",
+		zap.String("userId", userId))
 	return nil
 }
 
 func processSavedTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
-	logger.Debug("Processing user saved tracks", zap.String("userId", userId))
-	usersSavedTracks, err := spotify.GetUsersSavedTracks(token)
+	logger.Debug("Processing user saved tracks",
+		zap.String("userId", userId))
+
+	trackBatcher := createTrackBatcher("user", userId, tracker, db.SaveUserSavedTracks)
+
+	err := spotify.GetUsersSavedTracks(token, func(tracks []*spotify.Track) error {
+		for _, track := range tracks {
+			if err := trackBatcher.Add(track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		logger.Error("Error getting user saved tracks from Spotify", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting saved tracks: %w", err)
 	}
-	if len(usersSavedTracks) == 0 {
-		logger.Debug("No saved tracks found for user from Spotify", zap.String("userId", userId))
-		return nil
-	}
-	logger.Debug("Retrieved user saved tracks from Spotify", zap.String("userId", userId), zap.Int("count", len(usersSavedTracks)))
 
-	dbTracks := convertSpotifyTracksToDBTracks(usersSavedTracks)
-
-	var tracksToSave []*db.Track
-	for _, track := range dbTracks {
-		if track != nil && track.TrackId != "" && !tracker.CheckAndMark("track", track.TrackId) {
-			tracksToSave = append(tracksToSave, track)
-		}
-	}
-	logger.Debug("Saved tracks to save after deduplication", zap.String("userId", userId), zap.Int("tracksToSaveCount", len(tracksToSave)), zap.Int("originalDbTrackCount", len(dbTracks)))
-
-	if len(tracksToSave) > 0 {
-		err = db.SaveTracks(tracksToSave) // db.SaveTracks should have its own logging
-		if err != nil {
-			logger.Error("Error saving saved tracks to DB",
-				zap.String("userId", userId),
-				zap.Int("tracksToSaveCount", len(tracksToSave)),
-				zap.Error(err))
-			return fmt.Errorf("saving tracks: %w, tracks: %d", err, len(tracksToSave))
-		}
+	if err := trackBatcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
-	// db.SaveUserSavedTracks should have its own logging
-	err = db.SaveUserSavedTracks(userId, dbTracks)
-	if err != nil {
-		logger.Error("Error saving user-saved track relations to DB",
-			zap.String("userId", userId),
-			zap.Int("dbTrackCount", len(dbTracks)),
-			zap.Error(err))
-		return fmt.Errorf("saving user-track relations: %w, tracks: %d", err, len(dbTracks))
-	}
-
-	logger.Debug("Finished processing user saved tracks", zap.String("userId", userId))
+	logger.Debug("Processed user saved tracks",
+		zap.String("userId", userId))
 	return nil
 }

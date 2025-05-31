@@ -46,8 +46,8 @@ func main() {
 
 	router.POST("/api/v1/user/register", service.RegisterHandler)
 
-	router.GET("/api/v1/songs/preset", service.PresetPlaylistHandler)
-	router.GET("/api/v1/songs/recommendations", service.RecommendationsHandler)
+	// router.GET("/api/v1/songs/preset", service.PresetPlaylistHandler)
+	// router.GET("/api/v1/songs/recommendations", service.RecommendationsHandler)
 	router.GET("/api/v1/songs/bpm/:bpm", service.MatchingTracksHandler)
 
 	router.POST("/api/v1/song/:songId/feedback", service.FeedbackHandler)

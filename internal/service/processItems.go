@@ -21,8 +21,8 @@ func processAll(token string, userId string) {
 			zap.String("userId", userId),
 			zap.Time("startTime", startTime))
 
-		numWorkers := 20
-		jobQueueSize := 100000
+		numWorkers := 30
+		jobQueueSize := 100 * 1000
 
 		pool := NewWorkerPool(numWorkers, jobQueueSize)
 		tracker := NewProcessedTracker()
@@ -49,7 +49,7 @@ func processAll(token string, userId string) {
 
 		processAndCollectErrors := func(name string, processFunc func(string, string, *WorkerPool, *ProcessedTracker, *sync.WaitGroup, *StageContext) error) {
 			funcStart := time.Now()
-			
+
 			// Create a stage-specific wait group
 			stageWg := &sync.WaitGroup{}
 			stageCtx := &StageContext{
@@ -62,7 +62,7 @@ func processAll(token string, userId string) {
 				allErrors = append(allErrors, err)
 				errorMu.Unlock()
 			}
-			
+
 			// Wait for all jobs in this stage to complete
 			stageWg.Wait()
 
@@ -72,12 +72,33 @@ func processAll(token string, userId string) {
 				zap.Duration("stageDuration", time.Since(funcStart)))
 		}
 
-		processAndCollectErrors("topTracks", processTopTracks)
-		processAndCollectErrors("savedTracks", processSavedTracks)
-		processAndCollectErrors("playlists", processPlaylists)
-		processAndCollectErrors("topArtists", processTopArtists)
-		processAndCollectErrors("followedArtists", processFollowedArtists)
-		processAndCollectErrors("savedAlbums", processSavedAlbums)
+		var stagesWg sync.WaitGroup
+		stagesWg.Add(6)
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("topTracks", processTopTracks)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("savedTracks", processSavedTracks)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("playlists", processPlaylists)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("topArtists", processTopArtists)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("followedArtists", processFollowedArtists)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("savedAlbums", processSavedAlbums)
+		}()
+		stagesWg.Wait()
 
 		jobWg.Wait()
 		pool.Stop()

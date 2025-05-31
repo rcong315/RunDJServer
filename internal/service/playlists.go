@@ -15,114 +15,95 @@ type SavePlaylistTracksJob struct {
 	PlaylistID string
 }
 
-func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
-	token := j.Token // Token should not be logged directly for security
-	playlistId := j.PlaylistID
-	logger.Debug("Executing SavePlaylistTracksJob", zap.String("playlistId", playlistId))
+func createPlaylistBatcher(userId string, tracker *ProcessedTracker) *spotify.BatchProcessor[*spotify.Playlist] {
+	return spotify.NewBatchProcessor(100, func(playlists []*spotify.Playlist) error {
+		dbPlaylists := convertSpotifyPlaylistsToDBPlaylists(playlists)
+		var playlistsToSave []*db.Playlist
+		for _, playlist := range dbPlaylists {
+			if !tracker.CheckAndMark("playlist", playlist.PlaylistId) {
+				playlistsToSave = append(playlistsToSave, playlist)
+			}
+		}
 
-	playlistTracks, err := spotify.GetPlaylistsTracks(token, playlistId)
+		if len(playlistsToSave) > 0 {
+			if err := db.SavePlaylists(playlistsToSave); err != nil {
+				return fmt.Errorf("saving playlists batch: %w", err)
+			}
+			logger.Debug("Saved batch of playlists to DB",
+				zap.String("userId", userId))
+		}
+
+		if err := db.SaveUserPlaylists(userId, dbPlaylists); err != nil {
+			return fmt.Errorf("saving user-playlist relations: %w", err)
+		}
+
+		logger.Debug("Saved user-playlist relations to DB",
+			zap.String("userId", userId))
+		return nil
+	})
+
+}
+
+func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
+	token := j.Token
+	playlistId := j.PlaylistID
+
+	logger.Debug("Executing SavePlaylistTracksJob",
+		zap.String("playlistId", playlistId))
+
+	trackBatcher := createTrackBatcher("playlist", playlistId, tracker, db.SavePlaylistTracks)
+
+	err := spotify.GetPlaylistsTracks(token, playlistId, func(tracks []*spotify.Track) error {
+		for _, track := range tracks {
+			if err := trackBatcher.Add(track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		logger.Error("Error getting tracks for playlist in job", zap.String("playlistId", playlistId), zap.Error(err))
 		return fmt.Errorf("getting tracks for playlist %s: %w", playlistId, err)
 	}
-	if len(playlistTracks) == 0 {
-		logger.Debug("No tracks found for playlist in job", zap.String("playlistId", playlistId))
-		return nil
-	}
-	logger.Debug("Retrieved tracks for playlist", zap.String("playlistId", playlistId), zap.Int("trackCount", len(playlistTracks)))
 
-	dbTracks := convertSpotifyTracksToDBTracks(playlistTracks)
-	var tracksToSave []*db.Track
-	for _, track := range dbTracks {
-		if !tracker.CheckAndMark("track", track.TrackId) {
-			tracksToSave = append(tracksToSave, track)
-		}
-	}
-	logger.Debug("Tracks to save after deduplication", zap.String("playlistId", playlistId), zap.Int("tracksToSaveCount", len(tracksToSave)))
-
-	if len(tracksToSave) > 0 {
-		err = db.SaveTracks(tracksToSave) // db.SaveTracks should have its own logging
-		if err != nil {
-			logger.Error("Error saving tracks in SavePlaylistTracksJob",
-				zap.String("playlistId", playlistId),
-				zap.Int("tracksToSaveCount", len(tracksToSave)),
-				zap.Error(err))
-			return fmt.Errorf("saving tracks: %w, tracks: %d", err, len(tracksToSave))
-		}
+	if err := trackBatcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining tracks for playlist %s: %w", playlistId, err)
 	}
 
-	// SavePlaylistTracks might attempt to save all original dbTracks, not just tracksToSave.
-	// Assuming db.SavePlaylistTracks handles its own logging for success/failure.
-	err = db.SavePlaylistTracks(playlistId, dbTracks)
-	if err != nil {
-		logger.Error("Error saving playlist-track associations in job",
-			zap.String("playlistId", playlistId),
-			zap.Int("dbTrackCount", len(dbTracks)),
-			zap.Error(err))
-		return fmt.Errorf("saving playlist tracks: %w", err)
-	}
-
-	logger.Debug("Successfully executed SavePlaylistTracksJob", zap.String("playlistId", playlistId))
+	logger.Debug("Executed SavePlaylistTracksJob",
+		zap.String("playlistId", playlistId))
 	return nil
 }
 
 func processPlaylists(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
-	logger.Debug("Processing user playlists", zap.String("userId", userId))
-	usersPlaylists, err := spotify.GetUsersPlaylists(token)
-	if err != nil {
-		logger.Error("Error getting user playlists", zap.String("userId", userId), zap.Error(err))
-		return fmt.Errorf("getting playlists: %w", err)
-	}
-	if len(usersPlaylists) == 0 {
-		logger.Debug("No playlists found for user", zap.String("userId", userId))
-		return nil
-	}
-	logger.Debug("Retrieved user playlists", zap.String("userId", userId), zap.Int("playlistCount", len(usersPlaylists)))
+	logger.Debug("Processing user playlists",
+		zap.String("userId", userId))
 
-	dbPlaylists := convertSpotifyPlaylistsToDBPlaylists(usersPlaylists)
-	var playlistsToSave []*db.Playlist
-	for _, playlist := range dbPlaylists {
-		if !tracker.CheckAndMark("playlist", playlist.PlaylistId) {
-			playlistsToSave = append(playlistsToSave, playlist)
-		}
-	}
-	logger.Debug("Playlists to save after deduplication", zap.String("userId", userId), zap.Int("playlistsToSaveCount", len(playlistsToSave)))
+	playlistBatcher := createPlaylistBatcher(userId, tracker)
 
-	if len(playlistsToSave) > 0 {
-		err = db.SavePlaylists(playlistsToSave) // db.SavePlaylists should have its own logging
-		if err != nil {
-			logger.Error("Error saving playlists during user processing",
-				zap.String("userId", userId),
-				zap.Int("playlistsToSaveCount", len(playlistsToSave)),
-				zap.Error(err))
-			return fmt.Errorf("saving playlists: %w", err)
-		}
-	}
-
-	// db.SaveUserPlaylists should have its own logging
-	err = db.SaveUserPlaylists(userId, dbPlaylists)
-	if err != nil {
-		logger.Error("Error saving user-playlist relations during user processing",
-			zap.String("userId", userId),
-			zap.Int("dbPlaylistCount", len(dbPlaylists)),
-			zap.Error(err))
-		return fmt.Errorf("saving user-playlist relations: %w", err)
-	}
-
-	submittedJobs := 0
-	for _, playlist := range usersPlaylists {
-		if playlist != nil && playlist.Id != "" {
+	err := spotify.GetUsersPlaylists(token, func(playlists []*spotify.Playlist) error {
+		for _, playlist := range playlists {
+			if err := playlistBatcher.Add(playlist); err != nil {
+				return fmt.Errorf("adding playlist to batch: %w", err)
+			}
 			pool.SubmitWithStage(&SavePlaylistTracksJob{
 				Token:      token,
 				PlaylistID: playlist.Id,
 			}, jobWg, stage)
-			submittedJobs++
-		} else {
-			logger.Warn("Encountered nil or empty ID playlist during job submission", zap.String("userId", userId))
 		}
-	}
-	logger.Debug("Submitted jobs to save playlist tracks", zap.String("userId", userId), zap.Int("submittedJobCount", submittedJobs))
 
-	logger.Debug("Finished processing user playlists", zap.String("userId", userId))
+		logger.Debug("Processed batch of playlists",
+			zap.String("userId", userId))
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("getting playlists for user %s: %w", userId, err)
+	}
+
+	if err := playlistBatcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining playlists: %w", err)
+	}
+
+	logger.Debug("Processed user playlists",
+		zap.String("userId", userId))
 	return nil
 }
