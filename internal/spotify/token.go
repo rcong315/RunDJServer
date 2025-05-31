@@ -47,6 +47,7 @@ func fetchNewToken() (string, time.Time, error) {
 		return "", time.Time{}, fmt.Errorf("failed to create request for %s: %w", url, err)
 	}
 	req.Header.Add("Accept", "application/json")
+	req.Header.Add("X-API-Key", os.Getenv("TOKEN_API_KEY"))
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
