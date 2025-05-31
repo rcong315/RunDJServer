@@ -22,7 +22,7 @@ func processAll(token string, userId string) {
 			zap.Time("startTime", startTime))
 
 		numWorkers := 30
-		jobQueueSize := 100000
+		jobQueueSize := 100 * 1000
 
 		pool := NewWorkerPool(numWorkers, jobQueueSize)
 		tracker := NewProcessedTracker()
