@@ -369,8 +369,11 @@ func (b *BatchProcessor[T]) Flush() error {
 		return nil
 	}
 	err := b.processor(b.items)
-	b.items = b.items[:0] // Reset slice but keep capacity
-	return fmt.Errorf("flushing batch: %w", err)
+	b.items = b.items[:0]
+	if err != nil {
+		return fmt.Errorf("batch processing error: %w", err)
+	}
+	return nil
 }
 
 // StreamingOptions configures streaming behavior

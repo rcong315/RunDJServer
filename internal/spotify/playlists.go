@@ -80,7 +80,7 @@ func GetPlaylistsTracks(token string, playlistId string, processor func([]*Track
 	}
 
 	if err := audioFeaturesBatcher.Flush(); err != nil {
-		return fmt.Errorf("flushing remaining tracks for playlist %s: %w", playlistId, err)
+		return fmt.Errorf("flushing audio features for playlist %s: %w", playlistId, err)
 	}
 
 	return nil

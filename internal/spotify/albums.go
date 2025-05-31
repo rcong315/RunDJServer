@@ -80,7 +80,7 @@ func GetAlbumsTracks(albumId string, processor func([]*Track) error) error {
 	}
 
 	if err := audioFeaturesBatcher.Flush(); err != nil {
-		return fmt.Errorf("flushing remaining tracks for album %s: %w", albumId, err)
+		return fmt.Errorf("flushing audio features for album %s: %w", albumId, err)
 	}
 
 	return nil
