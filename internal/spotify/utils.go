@@ -261,7 +261,6 @@ func fetchAllResults[T any](token string, initialURL string) ([]*T, error) {
 	return results, nil
 }
 
-// fetchAllResultsStreaming fetches paginated results and processes each page immediately
 func fetchAllResultsStreaming[T any](token string, initialURL string, processor func(*T) error) error {
 	url := initialURL
 	for {
@@ -282,7 +281,6 @@ func fetchAllResultsStreaming[T any](token string, initialURL string, processor 
 	return nil
 }
 
-// fetchPaginatedItemsWithRetry implements exponential backoff retry strategy
 func fetchPaginatedItemsWithRetry[T any](token string, url string) (*T, error) {
 	const maxRetries = 4
 	baseDelay := 100 * time.Millisecond

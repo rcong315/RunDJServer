@@ -14,110 +14,92 @@ type SaveAlbumTracksJob struct {
 	AlbumId string
 }
 
-func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
-	albumId := j.AlbumId
-
-	var allDbTracks []*db.Track
-	var mu sync.Mutex
-	
-	err := spotify.GetAlbumsTracksStreaming(albumId, func(tracks []*spotify.Track) error {
-		dbTracks := convertSpotifyTracksToDBTracks(tracks)
-		
-		var tracksToSave []*db.Track
-		for _, track := range dbTracks {
-			if !tracker.CheckAndMark("track", track.TrackId) {
-				tracksToSave = append(tracksToSave, track)
-			}
-		}
-		
-		if len(tracksToSave) > 0 {
-			if err := db.SaveTracks(tracksToSave); err != nil {
-				return fmt.Errorf("saving tracks: %w, tracks: %d", err, len(tracksToSave))
-			}
-		}
-		
-		mu.Lock()
-		allDbTracks = append(allDbTracks, dbTracks...)
-		mu.Unlock()
-		
-		return nil
-	})
-	
-	if err != nil {
-		return fmt.Errorf("getting tracks for album %s: %w", albumId, err)
-	}
-	
-	if len(allDbTracks) == 0 {
-		return nil
-	}
-
-	err = db.SaveAlbumTracks(albumId, allDbTracks)
-	if err != nil {
-		return fmt.Errorf("saving album tracks: %w", err)
-	}
-
-	return nil
-}
-
-func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
-	logger.Debug("Getting user's saved albums", zap.String("userId", userId))
-	
-	var allDbAlbums []*db.Album
-	var allSpotifyAlbums []*spotify.Album
-	var mu sync.Mutex
-	
-	err := spotify.GetUsersSavedAlbumsStreaming(token, func(albums []*spotify.Album) error {
+func createAlbumBatcher(parentType string, parentId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Album) error) *spotify.BatchProcessor[*spotify.Album] {
+	return spotify.NewBatchProcessor(100, func(albums []*spotify.Album) error {
 		dbAlbums := convertSpotifyAlbumsToDBAlbums(albums)
-		
 		var albumsToSave []*db.Album
 		for _, album := range dbAlbums {
 			if !tracker.CheckAndMark("album", album.AlbumId) {
 				albumsToSave = append(albumsToSave, album)
 			}
 		}
-		
+
 		if len(albumsToSave) > 0 {
 			if err := db.SaveAlbums(albumsToSave); err != nil {
-				logger.Error("Error saving albums batch to DB",
-					zap.String("userId", userId),
-					zap.Int("albumsToSaveCount", len(albumsToSave)),
-					zap.Error(err))
-				return fmt.Errorf("saving albums: %w", err)
+				return fmt.Errorf("saving albums batch: %w", err)
+			}
+			logger.Debug("Saved batch of albums to DB",
+				zap.String(parentType, parentId))
+		}
+
+		if err := saveRelation(parentId, dbAlbums); err != nil {
+			return fmt.Errorf("saving album relation: %w", err)
+		}
+
+		logger.Debug("Saved album relations to DB",
+			zap.String(parentType, parentId))
+		return nil
+	})
+}
+
+func (j *SaveAlbumTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
+	albumId := j.AlbumId
+
+	logger.Debug("Executing SaveAlbumTracksJob",
+		zap.String("albumId", albumId))
+
+	trackBatcher := createTrackBatcher("album", albumId, tracker, db.SaveAlbumTracks)
+
+	err := spotify.GetAlbumsTracks(albumId, func(tracks []*spotify.Track) error {
+		for _, track := range tracks {
+			if err := trackBatcher.Add(track); err != nil {
+				return fmt.Errorf("adding track to batch: %w", err)
 			}
 		}
-		
-		// Submit jobs for album tracks immediately
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("getting tracks for album %s: %w", albumId, err)
+	}
+
+	if err := trackBatcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining tracks for album %s: %w", albumId, err)
+	}
+
+	logger.Debug("Executed SaveAlbumTracksJob",
+		zap.String("albumId", albumId))
+	return nil
+}
+
+func processSavedAlbums(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
+	logger.Debug("Processing user saved albums",
+		zap.String("userId", userId))
+
+	albumBatcher := createAlbumBatcher("user", userId, tracker, db.SaveUserSavedAlbums)
+
+	err := spotify.GetUsersSavedAlbums(token, func(albums []*spotify.Album) error {
 		for _, album := range albums {
+			if err := albumBatcher.Add(album); err != nil {
+				return fmt.Errorf("adding album to batch: %w", err)
+			}
 			pool.SubmitWithStage(&SaveAlbumTracksJob{
 				AlbumId: album.Id,
 			}, jobWg, stage)
 		}
-		
-		mu.Lock()
-		allDbAlbums = append(allDbAlbums, dbAlbums...)
-		allSpotifyAlbums = append(allSpotifyAlbums, albums...)
-		mu.Unlock()
-		
-		logger.Debug("Processed batch of saved albums", 
-			zap.String("userId", userId), 
-			zap.Int("batchSize", len(albums)),
-			zap.Int("savedCount", len(albumsToSave)))
+
+		logger.Debug("Processed batch of saved albums",
+			zap.String("userId", userId))
 		return nil
 	})
-	
 	if err != nil {
-		logger.Error("Error getting user's saved albums", zap.String("userId", userId), zap.Error(err))
 		return fmt.Errorf("getting saved albums: %w", err)
 	}
-	
-	if len(allDbAlbums) == 0 {
-		return nil
+
+	if err := albumBatcher.Flush(); err != nil {
+		return fmt.Errorf("flushing remaining albums: %w", err)
 	}
 
-	err = db.SaveUserSavedAlbums(userId, allDbAlbums)
-	if err != nil {
-		return fmt.Errorf("saving user-album relation: %w", err)
-	}
-
+	logger.Debug("Processed user saved albums",
+		zap.String("userId", userId))
 	return nil
 }

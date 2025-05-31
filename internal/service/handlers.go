@@ -83,93 +83,93 @@ func PresetPlaylistHandler(c *gin.Context) {
 	c.String(http.StatusOK, playlistId)
 }
 
-func RecommendationsHandler(c *gin.Context) {
-	logger.Info("RecommendationsHandler called")
-	token := c.Query("access_token")
-	if token == "" {
-		logger.Error("RecommendationsHandler: Missing access_token")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
-		return
-	}
+// func RecommendationsHandler(c *gin.Context) {
+// 	logger.Info("RecommendationsHandler called")
+// 	token := c.Query("access_token")
+// 	if token == "" {
+// 		logger.Error("RecommendationsHandler: Missing access_token")
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing access_token"})
+// 		return
+// 	}
 
-	// Attempt to get user ID for logging, even if not strictly required by the handler's logic yet
-	// This helps in correlating logs if an error occurs early.
-	var userIdForLogging string
-	userForLog, errUser := spotify.GetUser(token)
-	if errUser == nil && userForLog != nil {
-		userIdForLogging = userForLog.Id
-	}
+// 	// Attempt to get user ID for logging, even if not strictly required by the handler's logic yet
+// 	// This helps in correlating logs if an error occurs early.
+// 	var userIdForLogging string
+// 	userForLog, errUser := spotify.GetUser(token)
+// 	if errUser == nil && userForLog != nil {
+// 		userIdForLogging = userForLog.Id
+// 	}
 
-	usersTopArtists, err := spotify.GetUsersTopArtists(token)
-	if err != nil {
-		logger.Error("RecommendationsHandler: Error getting user's top artists", zap.String("userId", userIdForLogging), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error getting user's top artists: " + err.Error(),
-		})
-		return
-	}
-	if len(usersTopArtists) == 0 {
-		logger.Error("RecommendationsHandler: No top artists found", zap.String("userId", userIdForLogging))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No top artists found"})
-		return
-	}
-	logger.Debug("RecommendationsHandler: User's top artists retrieved", zap.String("userId", userIdForLogging), zap.Int("count", len(usersTopArtists)))
+// 	usersTopArtists, err := spotify.GetUsersTopArtists(token)
+// 	if err != nil {
+// 		logger.Error("RecommendationsHandler: Error getting user's top artists", zap.String("userId", userIdForLogging), zap.Error(err))
+// 		c.JSON(http.StatusInternalServerError, gin.H{
+// 			"error": "Error getting user's top artists: " + err.Error(),
+// 		})
+// 		return
+// 	}
+// 	if len(usersTopArtists) == 0 {
+// 		logger.Error("RecommendationsHandler: No top artists found", zap.String("userId", userIdForLogging))
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "No top artists found"})
+// 		return
+// 	}
+// 	logger.Debug("RecommendationsHandler: User's top artists retrieved", zap.String("userId", userIdForLogging), zap.Int("count", len(usersTopArtists)))
 
-	numSeedArtists := 5
-	if len(usersTopArtists) < 5 {
-		numSeedArtists = len(usersTopArtists)
-	}
+// 	numSeedArtists := 5
+// 	if len(usersTopArtists) < 5 {
+// 		numSeedArtists = len(usersTopArtists)
+// 	}
 
-	seedArtists := make([]string, numSeedArtists)
-	for i := range numSeedArtists {
-		seedArtists[i] = usersTopArtists[i].Id
-	}
+// 	seedArtists := make([]string, numSeedArtists)
+// 	for i := range numSeedArtists {
+// 		seedArtists[i] = usersTopArtists[i].Id
+// 	}
 
-	var seedGenres []string // Assuming seedGenres might be populated from elsewhere in a future state
-	if len(seedArtists) == 0 && len(seedGenres) == 0 {
-		logger.Error("RecommendationsHandler: Missing seeds", zap.String("userId", userIdForLogging))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing seeds"})
-		return
-	}
+// 	var seedGenres []string // Assuming seedGenres might be populated from elsewhere in a future state
+// 	if len(seedArtists) == 0 && len(seedGenres) == 0 {
+// 		logger.Error("RecommendationsHandler: Missing seeds", zap.String("userId", userIdForLogging))
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing seeds"})
+// 		return
+// 	}
 
-	bpmStr := c.Query("bpm")
-	if bpmStr == "" {
-		logger.Error("RecommendationsHandler: Missing bpm", zap.String("userId", userIdForLogging))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
-		return
-	}
-	bpm, err := strconv.ParseFloat(bpmStr, 64)
-	if err != nil {
-		logger.Error("RecommendationsHandler: Invalid bpm", zap.String("userId", userIdForLogging), zap.String("bpmStr", bpmStr), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
-		return
-	}
+// 	bpmStr := c.Query("bpm")
+// 	if bpmStr == "" {
+// 		logger.Error("RecommendationsHandler: Missing bpm", zap.String("userId", userIdForLogging))
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing bpm"})
+// 		return
+// 	}
+// 	bpm, err := strconv.ParseFloat(bpmStr, 64)
+// 	if err != nil {
+// 		logger.Error("RecommendationsHandler: Invalid bpm", zap.String("userId", userIdForLogging), zap.String("bpmStr", bpmStr), zap.Error(err))
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bpm: " + err.Error()})
+// 		return
+// 	}
 
-	minBPM := bpm - 2
-	maxBPM := bpm + 2
+// 	minBPM := bpm - 2
+// 	maxBPM := bpm + 2
 
-	logger.Debug("RecommendationsHandler: Getting recommendations",
-		zap.String("userId", userIdForLogging),
-		zap.Strings("seedArtists", seedArtists),
-		zap.Strings("seedGenres", seedGenres),
-		zap.Float64("minBPM", minBPM),
-		zap.Float64("maxBPM", maxBPM))
-	tracks, err := spotify.GetRecommendations(seedArtists, seedGenres, minBPM, maxBPM)
-	if err != nil {
-		logger.Error("RecommendationsHandler: Error getting recommendations", zap.String("userId", userIdForLogging), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error getting recommendations: " + err.Error(),
-		})
-		return
-	}
+// 	logger.Debug("RecommendationsHandler: Getting recommendations",
+// 		zap.String("userId", userIdForLogging),
+// 		zap.Strings("seedArtists", seedArtists),
+// 		zap.Strings("seedGenres", seedGenres),
+// 		zap.Float64("minBPM", minBPM),
+// 		zap.Float64("maxBPM", maxBPM))
+// 	tracks, err := spotify.GetRecommendations(seedArtists, seedGenres, minBPM, maxBPM)
+// 	if err != nil {
+// 		logger.Error("RecommendationsHandler: Error getting recommendations", zap.String("userId", userIdForLogging), zap.Error(err))
+// 		c.JSON(http.StatusInternalServerError, gin.H{
+// 			"error": "Error getting recommendations: " + err.Error(),
+// 		})
+// 		return
+// 	}
 
-	trackIds := make([]string, len(tracks))
-	for i, track := range tracks {
-		trackIds[i] = track.Id
-	}
-	logger.Info("RecommendationsHandler: Recommendations retrieved", zap.String("userId", userIdForLogging), zap.Int("count", len(trackIds)))
-	c.JSON(http.StatusOK, trackIds)
-}
+// 	trackIds := make([]string, len(tracks))
+// 	for i, track := range tracks {
+// 		trackIds[i] = track.Id
+// 	}
+// 	logger.Info("RecommendationsHandler: Recommendations retrieved", zap.String("userId", userIdForLogging), zap.Int("count", len(trackIds)))
+// 	c.JSON(http.StatusOK, trackIds)
+// }
 
 func MatchingTracksHandler(c *gin.Context) {
 	logger.Info("MatchingTracksHandler called")

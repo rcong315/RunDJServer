@@ -66,7 +66,7 @@ type AudioFeaturesResponse struct {
 }
 
 func createAudioFeaturesBatcher(processor func([]*Track) error) *BatchProcessor[*Track] {
-	return NewBatchProcessor[*Track](100, func(tracks []*Track) error {
+	return NewBatchProcessor(100, func(tracks []*Track) error {
 		enrichedTracks, err := getAudioFeatures(tracks)
 		if err != nil {
 			return fmt.Errorf("getting audio features batch: %w", err)
@@ -89,7 +89,7 @@ func GetUsersTopTracks(token string, processor func([]*Track) error) error {
 
 	audioFeaturesBatcher := createAudioFeaturesBatcher(processor)
 
-	err := fetchAllResultsStreaming[UsersTopTracksResponse](token, url, func(response *UsersTopTracksResponse) error {
+	err := fetchAllResultsStreaming(token, url, func(response *UsersTopTracksResponse) error {
 		for i := range response.Items {
 			if err := audioFeaturesBatcher.Add(&response.Items[i]); err != nil {
 				return fmt.Errorf("adding track to batch: %w", err)
@@ -105,7 +105,7 @@ func GetUsersTopTracks(token string, processor func([]*Track) error) error {
 		return fmt.Errorf("flushing reamaing tracks: %w", err)
 	}
 
-	logger.Debug("Successfully retrieved user's top tracks")
+	logger.Debug("Retrieved user's top tracks")
 	return nil
 }
 
@@ -116,7 +116,7 @@ func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
 
 	audioFeaturesBatcher := createAudioFeaturesBatcher(processor)
 
-	err := fetchAllResultsStreaming[UsersSavedTracksResponse](token, url, func(response *UsersSavedTracksResponse) error {
+	err := fetchAllResultsStreaming(token, url, func(response *UsersSavedTracksResponse) error {
 		for i := range response.Items {
 			if err := audioFeaturesBatcher.Add(&response.Items[i].Track); err != nil {
 				return fmt.Errorf("adding track to batch: %w", err)
@@ -132,7 +132,7 @@ func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
 		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
-	logger.Debug("Successfully retrieved user's saved tracks")
+	logger.Debug("Retrieved user's saved tracks")
 	return nil
 }
 
@@ -164,11 +164,11 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 		url := fmt.Sprintf("%s/audio-features?ids=", spotifyAPIURL) + strings.Join(ids, ",")
 		logger.Debug("Audio features request URL", zap.String("url", url))
 
-		// fetchAllResults expects a slice of responses, but /audio-features returns a single object with a list.
-		// We need a direct fetch or adapt fetchAllResults if it can handle single-object root.
-		// For simplicity, let's assume fetchAllResults is adapted or we use a direct fetch.
-		// If fetchAllResults is strictly for paginated list of T, this part needs adjustment.
-		// Assuming fetchAllResults returns []*AudioFeaturesResponse and we take the first.
+		// fetchAllResultsStreaming expects a slice of responses, but /audio-features returns a single object with a list.
+		// We need a direct fetch or adapt fetchAllResultsStreaming if it can handle single-object root.
+		// For simplicity, let's assume fetchAllResultsStreaming is adapted or we use a direct fetch.
+		// If fetchAllResultsStreaming is strictly for paginated list of T, this part needs adjustment.
+		// Assuming fetchAllResultsStreaming returns []*AudioFeaturesResponse and we take the first.
 		audioFeaturesResponses, err := fetchAllResults[AudioFeaturesResponse](token, url)
 		if err != nil {
 			logger.Error("Error fetching audio features batch", zap.Error(err), zap.String("url", url))
@@ -209,56 +209,55 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	return tracks, nil // Return the modified original slice
 }
 
-// TODO: review
-func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxTempo float64) ([]*Track, error) {
-	logger.Debug("Attempting to get recommendations",
-		zap.Strings("seedArtists", seedArtists),
-		zap.Strings("seedGenres", seedGenres),
-		zap.Float64("minTempo", minTempo),
-		zap.Float64("maxTempo", maxTempo))
+// func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxTempo float64) ([]*Track, error) {
+// 	logger.Debug("Attempting to get recommendations",
+// 		zap.Strings("seedArtists", seedArtists),
+// 		zap.Strings("seedGenres", seedGenres),
+// 		zap.Float64("minTempo", minTempo),
+// 		zap.Float64("maxTempo", maxTempo))
 
-	token, err := getSecretToken()
-	if err != nil {
-		logger.Error("Error getting secret token for GetRecommendations", zap.Error(err))
-		return nil, err
-	}
+// 	token, err := getSecretToken()
+// 	if err != nil {
+// 		logger.Error("Error getting secret token for GetRecommendations", zap.Error(err))
+// 		return nil, err
+// 	}
 
-	url := fmt.Sprintf("%s/recommendations?limit=%d&", spotifyAPIURL, 100)
-	if len(seedArtists) > 0 {
-		url += "seed_artists=" + strings.Join(seedArtists, ",") + "&"
-	}
-	if len(seedGenres) > 0 {
-		url += "seed_genres=" + strings.Join(seedGenres, ",") + "&"
-	}
-	if minTempo > 0 {
-		url += fmt.Sprintf("min_tempo=%f&", minTempo)
-	}
-	if maxTempo > 0 {
-		url += fmt.Sprintf("max_tempo=%f", maxTempo)
-	}
-	// Remove trailing '&' if present
-	url = strings.TrimSuffix(url, "&")
-	logger.Debug("Recommendations request URL", zap.String("url", url))
+// 	url := fmt.Sprintf("%s/recommendations?limit=%d&", spotifyAPIURL, 100)
+// 	if len(seedArtists) > 0 {
+// 		url += "seed_artists=" + strings.Join(seedArtists, ",") + "&"
+// 	}
+// 	if len(seedGenres) > 0 {
+// 		url += "seed_genres=" + strings.Join(seedGenres, ",") + "&"
+// 	}
+// 	if minTempo > 0 {
+// 		url += fmt.Sprintf("min_tempo=%f&", minTempo)
+// 	}
+// 	if maxTempo > 0 {
+// 		url += fmt.Sprintf("max_tempo=%f", maxTempo)
+// 	}
+// 	// Remove trailing '&' if present
+// 	url = strings.TrimSuffix(url, "&")
+// 	logger.Debug("Recommendations request URL", zap.String("url", url))
 
-	// Recommendations API returns a single object, not a paginated list of them.
-	// fetchAllResults might not be suitable if it expects a 'Next' field in RecommendationsResponse itself.
-	// Assuming fetchAllResults can handle this or a direct fetch is used.
-	// If RecommendationsResponse is the T in fetchAllResults[T], then responses will be []*RecommendationsResponse.
-	responses, err := fetchAllResults[RecommendationsResponse](token, url)
-	if err != nil {
-		logger.Error("Error fetching recommendations", zap.Error(err), zap.String("url", url))
-		return nil, err
-	}
+// 	// Recommendations API returns a single object, not a paginated list of them.
+// 	// fetchAllResultsStreaming might not be suitable if it expects a 'Next' field in RecommendationsResponse itself.
+// 	// Assuming fetchAllResultsStreaming can handle this or a direct fetch is used.
+// 	// If RecommendationsResponse is the T in fetchAllResultsStreaming[T], then responses will be []*RecommendationsResponse.
+// 	responses, err := fetchAllResultsStreaming[RecommendationsResponse](token, url)
+// 	if err != nil {
+// 		logger.Error("Error fetching recommendations", zap.Error(err), zap.String("url", url))
+// 		return nil, err
+// 	}
 
-	var allTracks []*Track
-	if len(responses) > 0 && responses[0] != nil { // Check if we got any response
-		for i := range responses[0].Tracks {
-			allTracks = append(allTracks, &responses[0].Tracks[i])
-		}
-	} else {
-		logger.Warn("No recommendations data received in response", zap.String("url", url))
-	}
+// 	var allTracks []*Track
+// 	if len(responses) > 0 && responses[0] != nil { // Check if we got any response
+// 		for i := range responses[0].Tracks {
+// 			allTracks = append(allTracks, &responses[0].Tracks[i])
+// 		}
+// 	} else {
+// 		logger.Warn("No recommendations data received in response", zap.String("url", url))
+// 	}
 
-	logger.Debug("Successfully retrieved recommendations", zap.Int("count", len(allTracks)))
-	return allTracks, nil // Original code returned 'err' which would be nil here if fetchAllResults succeeded.
-}
+// 	logger.Debug("Successfully retrieved recommendations", zap.Int("count", len(allTracks)))
+// 	return allTracks, nil // Original code returned 'err' which would be nil here if fetchAllResultsStreaming succeeded.
+// }

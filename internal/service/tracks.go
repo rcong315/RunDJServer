@@ -11,7 +11,7 @@ import (
 )
 
 func createTrackBatcher(parentType string, parentId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Track) error) *spotify.BatchProcessor[*spotify.Track] {
-	return spotify.NewBatchProcessor[*spotify.Track](100, func(tracks []*spotify.Track) error {
+	return spotify.NewBatchProcessor(100, func(tracks []*spotify.Track) error {
 		dbTracks := convertSpotifyTracksToDBTracks(tracks)
 		var tracksToSave []*db.Track
 		for _, track := range dbTracks {
@@ -31,9 +31,9 @@ func createTrackBatcher(parentType string, parentId string, tracker *ProcessedTr
 		if err := saveRelation(parentId, dbTracks); err != nil {
 			return fmt.Errorf("saving track relations: %w", err)
 		}
+
 		logger.Debug("Saved track relations to DB",
 			zap.String(parentType, parentId))
-
 		return nil
 	})
 }
@@ -61,7 +61,7 @@ func processTopTracks(userId string, token string, pool *WorkerPool, tracker *Pr
 		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
-	logger.Debug("Finished processing user top tracks",
+	logger.Debug("Processed user top tracks",
 		zap.String("userId", userId))
 	return nil
 }
@@ -88,7 +88,7 @@ func processSavedTracks(userId string, token string, pool *WorkerPool, tracker *
 		return fmt.Errorf("flushing remaining tracks: %w", err)
 	}
 
-	logger.Debug("Finished processing user saved tracks",
+	logger.Debug("Processed user saved tracks",
 		zap.String("userId", userId))
 	return nil
 }

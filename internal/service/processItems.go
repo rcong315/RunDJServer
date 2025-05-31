@@ -21,7 +21,7 @@ func processAll(token string, userId string) {
 			zap.String("userId", userId),
 			zap.Time("startTime", startTime))
 
-		numWorkers := 20
+		numWorkers := 30
 		jobQueueSize := 100000
 
 		pool := NewWorkerPool(numWorkers, jobQueueSize)
@@ -72,12 +72,33 @@ func processAll(token string, userId string) {
 				zap.Duration("stageDuration", time.Since(funcStart)))
 		}
 
-		processAndCollectErrors("topTracks", processTopTracks)
-		processAndCollectErrors("savedTracks", processSavedTracks)
-		processAndCollectErrors("playlists", processPlaylists)
-		// go processAndCollectErrors("topArtists", processTopArtists)
-		// go processAndCollectErrors("followedArtists", processFollowedArtists)
-		// go processAndCollectErrors("savedAlbums", processSavedAlbums)
+		var stagesWg sync.WaitGroup
+		stagesWg.Add(6)
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("topTracks", processTopTracks)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("savedTracks", processSavedTracks)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("playlists", processPlaylists)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("topArtists", processTopArtists)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("followedArtists", processFollowedArtists)
+		}()
+		go func() {
+			defer stagesWg.Done()
+			processAndCollectErrors("savedAlbums", processSavedAlbums)
+		}()
+		stagesWg.Wait()
 
 		jobWg.Wait()
 		pool.Stop()

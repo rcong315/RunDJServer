@@ -16,7 +16,7 @@ type SavePlaylistTracksJob struct {
 }
 
 func createPlaylistBatcher(userId string, tracker *ProcessedTracker) *spotify.BatchProcessor[*spotify.Playlist] {
-	return spotify.NewBatchProcessor[*spotify.Playlist](100, func(playlists []*spotify.Playlist) error {
+	return spotify.NewBatchProcessor(100, func(playlists []*spotify.Playlist) error {
 		dbPlaylists := convertSpotifyPlaylistsToDBPlaylists(playlists)
 		var playlistsToSave []*db.Playlist
 		for _, playlist := range dbPlaylists {
@@ -29,14 +29,16 @@ func createPlaylistBatcher(userId string, tracker *ProcessedTracker) *spotify.Ba
 			if err := db.SavePlaylists(playlistsToSave); err != nil {
 				return fmt.Errorf("saving playlists batch: %w", err)
 			}
-			logger.Debug("Saved batch of playlists to DB")
+			logger.Debug("Saved batch of playlists to DB",
+				zap.String("userId", userId))
 		}
 
 		if err := db.SaveUserPlaylists(userId, dbPlaylists); err != nil {
 			return fmt.Errorf("saving user-playlist relations: %w", err)
 		}
-		logger.Debug("Saved user-playlist relations to DB", zap.String("userId", userId))
 
+		logger.Debug("Saved user-playlist relations to DB",
+			zap.String("userId", userId))
 		return nil
 	})
 
@@ -46,11 +48,12 @@ func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 	token := j.Token
 	playlistId := j.PlaylistID
 
-	logger.Debug("Executing SavePlaylistTracksJob", zap.String("playlistId", playlistId))
+	logger.Debug("Executing SavePlaylistTracksJob",
+		zap.String("playlistId", playlistId))
 
 	trackBatcher := createTrackBatcher("playlist", playlistId, tracker, db.SavePlaylistTracks)
 
-	err := spotify.GetPlaylistsTracksStreaming(token, playlistId, func(tracks []*spotify.Track) error {
+	err := spotify.GetPlaylistsTracks(token, playlistId, func(tracks []*spotify.Track) error {
 		for _, track := range tracks {
 			if err := trackBatcher.Add(track); err != nil {
 				return fmt.Errorf("adding track to batch: %w", err)
@@ -66,7 +69,8 @@ func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 		return fmt.Errorf("flushing remaining tracks for playlist %s: %w", playlistId, err)
 	}
 
-	logger.Debug("Successfully executed SavePlaylistTracksJob", zap.String("playlistId", playlistId))
+	logger.Debug("Executed SavePlaylistTracksJob",
+		zap.String("playlistId", playlistId))
 	return nil
 }
 
@@ -76,9 +80,11 @@ func processPlaylists(userId string, token string, pool *WorkerPool, tracker *Pr
 
 	playlistBatcher := createPlaylistBatcher(userId, tracker)
 
-	err := spotify.GetUsersPlaylistsStreaming(token, func(playlists []*spotify.Playlist) error {
+	err := spotify.GetUsersPlaylists(token, func(playlists []*spotify.Playlist) error {
 		for _, playlist := range playlists {
-			playlistBatcher.Add(playlist)
+			if err := playlistBatcher.Add(playlist); err != nil {
+				return fmt.Errorf("adding playlist to batch: %w", err)
+			}
 			pool.SubmitWithStage(&SavePlaylistTracksJob{
 				Token:      token,
 				PlaylistID: playlist.Id,
@@ -90,13 +96,14 @@ func processPlaylists(userId string, token string, pool *WorkerPool, tracker *Pr
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("getting playlists: %w", err)
+		return fmt.Errorf("getting playlists for user %s: %w", userId, err)
 	}
 
 	if err := playlistBatcher.Flush(); err != nil {
 		return fmt.Errorf("flushing remaining playlists: %w", err)
 	}
 
-	logger.Debug("Finished processing user playlists", zap.String("userId", userId))
+	logger.Debug("Processed user playlists",
+		zap.String("userId", userId))
 	return nil
 }
