@@ -159,8 +159,6 @@ func batchAndSave(items any, queryFilename string, paramConverter func(item any)
 	return nil
 }
 
-
-
 func executeSelect(queryFilename string, args ...any) (pgx.Rows, error) {
 	sqlQuery, err := getQueryString("select", queryFilename)
 	if err != nil {
