@@ -24,7 +24,7 @@ func SavePlaylists(playlists []*Playlist) error {
 	}
 	logger.Debug("Attempting to save playlists", zap.Int("count", len(playlists)))
 
-	err := batchAndSave(playlists, "playlist", func(item any, _ int) []any {
+	err := batchAndSave(playlists, "playlist", func(item any) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			playlist.PlaylistId,
@@ -51,7 +51,7 @@ func SaveUserPlaylists(userId string, playlists []*Playlist) error {
 	}
 	logger.Debug("Attempting to save user-playlist associations", zap.String("userId", userId), zap.Int("count", len(playlists)))
 
-	err := batchAndSave(playlists, "userPlaylist", func(item any, _ int) []any {
+	err := batchAndSave(playlists, "userPlaylist", func(item any) []any {
 		playlist := item.(*Playlist)
 		return []any{
 			userId,
@@ -73,7 +73,7 @@ func SavePlaylistTracks(playlistId string, tracks []*Track) error {
 	}
 	logger.Debug("Attempting to save playlist-track associations", zap.String("playlistId", playlistId), zap.Int("trackCount", len(tracks)))
 
-	err := batchAndSave(tracks, "playlistTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "playlistTrack", func(item any) []any {
 		track := item.(*Track)
 		return []any{
 			playlistId,

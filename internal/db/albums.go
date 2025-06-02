@@ -26,7 +26,7 @@ func SaveAlbums(albums []*Album) error {
 	}
 	logger.Debug("Attempting to save albums", zap.Int("count", len(albums)))
 
-	err := batchAndSave(albums, "album", func(item any, _ int) []any {
+	err := batchAndSave(albums, "album", func(item any) []any {
 		album := item.(*Album)
 		return []any{
 			album.AlbumId,
@@ -56,7 +56,7 @@ func SaveUserSavedAlbums(userId string, albums []*Album) error {
 	}
 	logger.Debug("Attempting to save user-saved album associations", zap.String("userId", userId), zap.Int("count", len(albums)))
 
-	err := batchAndSave(albums, "userSavedAlbum", func(item any, _ int) []any {
+	err := batchAndSave(albums, "userSavedAlbum", func(item any) []any {
 		album := item.(*Album)
 		return []any{
 			userId,
@@ -78,7 +78,7 @@ func SaveAlbumTracks(albumId string, tracks []*Track) error {
 	}
 	logger.Debug("Attempting to save album-track associations", zap.String("albumId", albumId), zap.Int("trackCount", len(tracks)))
 
-	err := batchAndSave(tracks, "albumTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "albumTrack", func(item any) []any {
 		track := item.(*Track)
 		return []any{
 			albumId,
