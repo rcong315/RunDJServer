@@ -21,7 +21,7 @@ func processAll(token string, userId string) {
 			zap.String("userId", userId),
 			zap.Time("startTime", startTime))
 
-		numWorkers := 16
+		numWorkers := 32
 		jobQueueSize := 100 * 1000
 
 		pool := NewWorkerPool(numWorkers, jobQueueSize)
