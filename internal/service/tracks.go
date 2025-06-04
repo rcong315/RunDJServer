@@ -38,13 +38,59 @@ func createTrackBatcher(parentType string, parentId string, tracker *ProcessedTr
 	})
 }
 
+func createRankedTrackBatcher(parentType string, parentId string, tracker *ProcessedTracker,
+	saveRelation func(string, []*db.RankedTrack) error, rankCounter *int) *spotify.BatchProcessor[*spotify.Track] {
+
+	return spotify.NewBatchProcessor(100, func(tracks []*spotify.Track) error {
+		dbTracks := convertSpotifyTracksToDBTracks(tracks)
+		var tracksToSave []*db.Track
+		var rankedTracks []*db.RankedTrack
+
+		for _, track := range dbTracks {
+			if !tracker.CheckAndMark("track", track.TrackId) {
+				tracksToSave = append(tracksToSave, track)
+			}
+			*rankCounter++
+			rankedTracks = append(rankedTracks, &db.RankedTrack{
+				Track: track,
+				Rank:  *rankCounter,
+			})
+		}
+
+		if len(tracksToSave) > 0 {
+			if err := db.SaveTracks(tracksToSave); err != nil {
+				return fmt.Errorf("saving tracks batch: %w", err)
+			}
+			logger.Debug("Saved batch of tracks to DB",
+				zap.String(parentType, parentId))
+		}
+
+		if err := saveRelation(parentId, rankedTracks); err != nil {
+			return fmt.Errorf("saving track relations: %w", err)
+		}
+
+		logger.Debug("Saved track relations to DB with rankings",
+			zap.String(parentType, parentId),
+			zap.Int("startRank", rankedTracks[0].Rank),
+			zap.Int("endRank", rankedTracks[len(rankedTracks)-1].Rank))
+		return nil
+	})
+}
+
 func processTopTracks(userId string, token string, pool *WorkerPool, tracker *ProcessedTracker, jobWg *sync.WaitGroup, stage *StageContext) error {
 	logger.Debug("Processing user top tracks",
 		zap.String("userId", userId))
 
-	trackBatcher := createTrackBatcher("user", userId, tracker, db.SaveUserTopTracks)
+	// Initialize rank counter to track ranking across pages
+	rankCounter := 0
 
-	// TODO: fix ranking
+	// Create a wrapper function that converts RankedTrack to the expected format
+	saveRankedTracks := func(userId string, rankedTracks []*db.RankedTrack) error {
+		return db.SaveUserTopTracks(userId, rankedTracks)
+	}
+
+	trackBatcher := createRankedTrackBatcher("user", userId, tracker, saveRankedTracks, &rankCounter)
+
 	err := spotify.GetUsersTopTracks(token, func(tracks []*spotify.Track) error {
 		for _, track := range tracks {
 			if err := trackBatcher.Add(track); err != nil {
@@ -62,7 +108,8 @@ func processTopTracks(userId string, token string, pool *WorkerPool, tracker *Pr
 	}
 
 	logger.Debug("Processed user top tracks",
-		zap.String("userId", userId))
+		zap.String("userId", userId),
+		zap.Int("totalRanked", rankCounter))
 	return nil
 }
 

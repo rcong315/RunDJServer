@@ -8,6 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// RankedTrack wraps a track with its ranking
+type RankedTrack struct {
+	Track *Track
+	Rank  int
+}
+
 type Track struct {
 	TrackId          string         `json:"track_id"`
 	Name             string         `json:"name"`
@@ -44,7 +50,7 @@ func SaveTracks(tracks []*Track) error {
 	}
 	logger.Debug("Attempting to save tracks", zap.Int("count", len(tracks)))
 
-	err := batchAndSave(tracks, "track", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "track", func(item any) []any {
 		track := item.(*Track)
 
 		var audioFeaturesJSON string
@@ -82,26 +88,46 @@ func SaveTracks(tracks []*Track) error {
 	return nil
 }
 
-func SaveUserTopTracks(userId string, tracks []*Track) error {
-	if len(tracks) == 0 {
+func SaveUserTopTracks(userId string, rankedTracks []*RankedTrack) error {
+	if len(rankedTracks) == 0 {
 		logger.Debug("SaveUserTopTracks: No tracks to save for user.", zap.String("userId", userId))
 		return nil
 	}
-	logger.Debug("Attempting to save user top tracks", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	logger.Debug("Attempting to save user top tracks",
+		zap.String("userId", userId),
+		zap.Int("count", len(rankedTracks)))
 
-	err := batchAndSave(tracks, "userTopTrack", func(item any, rank int) []any {
-		track := item.(*Track)
+	// Create a custom type for the batch save to include ranking
+	type userTopTrackWithRank struct {
+		userId  string
+		trackId string
+		rank    int
+	}
+
+	items := make([]userTopTrackWithRank, len(rankedTracks))
+	for i, rt := range rankedTracks {
+		items[i] = userTopTrackWithRank{
+			userId:  userId,
+			trackId: rt.Track.TrackId,
+			rank:    rt.Rank,
+		}
+	}
+
+	err := batchAndSave(items, "userTopTrack", func(item any) []any {
+		track := item.(userTopTrackWithRank)
 		return []any{
-			userId,
-			track.TrackId,
-			rank,
+			track.userId,
+			track.trackId,
+			track.rank,
 		}
 	})
 	if err != nil {
 		return fmt.Errorf("error saving user top tracks: %v", err)
 	}
 
-	logger.Debug("Successfully saved user top tracks batch", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	logger.Debug("Successfully saved user top tracks batch",
+		zap.String("userId", userId),
+		zap.Int("count", len(rankedTracks)))
 	return nil
 }
 
@@ -112,7 +138,7 @@ func SaveUserSavedTracks(userId string, tracks []*Track) error {
 	}
 	logger.Debug("Attempting to save user saved tracks", zap.String("userId", userId), zap.Int("count", len(tracks)))
 
-	err := batchAndSave(tracks, "userSavedTrack", func(item any, _ int) []any {
+	err := batchAndSave(tracks, "userSavedTrack", func(item any) []any {
 		track := item.(*Track)
 		return []any{
 			userId,

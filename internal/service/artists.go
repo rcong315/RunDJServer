@@ -54,13 +54,60 @@ func createArtistBatcher(userId string, tracker *ProcessedTracker, saveRelation 
 	})
 }
 
+func createRankedArtistBatcher(userId string, tracker *ProcessedTracker,
+	saveRelation func(string, []*db.RankedArtist) error, rankCounter *int) *spotify.BatchProcessor[*spotify.Artist] {
+
+	return spotify.NewBatchProcessor(100, func(artists []*spotify.Artist) error {
+		dbArtists := convertSpotifyArtistsToDBArtists(artists)
+		var artistsToSave []*db.Artist
+		var rankedArtists []*db.RankedArtist
+
+		for _, artist := range dbArtists {
+			if !tracker.CheckAndMark("artist", artist.ArtistId) {
+				artistsToSave = append(artistsToSave, artist)
+			}
+			*rankCounter++
+			rankedArtists = append(rankedArtists, &db.RankedArtist{
+				Artist: artist,
+				Rank:   *rankCounter,
+			})
+		}
+
+		if len(artistsToSave) > 0 {
+			if err := db.SaveArtists(artistsToSave); err != nil {
+				return fmt.Errorf("saving artists batch: %w", err)
+			}
+			logger.Debug("Saved batch of artists to DB",
+				zap.String("userId", userId))
+		}
+
+		if err := saveRelation(userId, rankedArtists); err != nil {
+			return fmt.Errorf("saving user-artist relations: %w", err)
+		}
+
+		logger.Debug("Saved user-artist relations to DB with rankings",
+			zap.String("userId", userId),
+			zap.Int("startRank", rankedArtists[0].Rank),
+			zap.Int("endRank", rankedArtists[len(rankedArtists)-1].Rank))
+		return nil
+	})
+}
+
 func (j *SaveArtistTopTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup, tracker *ProcessedTracker, stage *StageContext) error {
 	artistId := j.ArtistId
 
 	logger.Debug("Executing SaveArtistTopTracksJob",
 		zap.String("artistId", artistId))
 
-	trackBatcher := createTrackBatcher("artist", artistId, tracker, db.SaveArtistTopTracks)
+	// Initialize rank counter for this artist's top tracks
+	rankCounter := 0
+
+	// Create a wrapper function that converts RankedTrack to the expected format
+	saveRankedTracks := func(artistId string, rankedTracks []*db.RankedTrack) error {
+		return db.SaveArtistTopTracks(artistId, rankedTracks)
+	}
+
+	trackBatcher := createRankedTrackBatcher("artist", artistId, tracker, saveRankedTracks, &rankCounter)
 
 	err := spotify.GetArtistsTopTracks(artistId, func(tracks []*spotify.Track) error {
 		for _, track := range tracks {
@@ -79,7 +126,8 @@ func (j *SaveArtistTopTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup
 	}
 
 	logger.Debug("Executed SaveArtistTopTracksJob",
-		zap.String("artistId", artistId))
+		zap.String("artistId", artistId),
+		zap.Int("totalRanked", rankCounter))
 	return nil
 }
 
@@ -122,7 +170,15 @@ func processTopArtists(userId string, token string, pool *WorkerPool, tracker *P
 	logger.Debug("Getting user's top artists",
 		zap.String("userId", userId))
 
-	artistBatcher := createArtistBatcher(userId, tracker, db.SaveUserTopArtists)
+	// Initialize rank counter to track ranking across pages
+	rankCounter := 0
+
+	// Create a wrapper function that converts RankedArtist to the expected format
+	saveRankedArtists := func(userId string, rankedArtists []*db.RankedArtist) error {
+		return db.SaveUserTopArtists(userId, rankedArtists)
+	}
+
+	artistBatcher := createRankedArtistBatcher(userId, tracker, saveRankedArtists, &rankCounter)
 
 	err := spotify.GetUsersTopArtists(token, func(artists []*spotify.Artist) error {
 		for _, artist := range artists {
@@ -151,7 +207,8 @@ func processTopArtists(userId string, token string, pool *WorkerPool, tracker *P
 	}
 
 	logger.Debug("Processed user's top artists",
-		zap.String("userId", userId))
+		zap.String("userId", userId),
+		zap.Int("totalRanked", rankCounter))
 	return nil
 }
 
@@ -159,7 +216,8 @@ func processFollowedArtists(userId string, token string, pool *WorkerPool, track
 	logger.Debug("Getting user's followed artists",
 		zap.String("userId", userId))
 
-	artistBatcher := createArtistBatcher(userId, tracker, db.SaveUserTopArtists)
+	// Note: followed artists typically don't have ranking, so using the original batcher
+	artistBatcher := createArtistBatcher(userId, tracker, db.SaveUserFollowedArtists)
 
 	err := spotify.GetUsersFollowedArtists(token, func(artists []*spotify.Artist) error {
 		for _, artist := range artists {
@@ -168,7 +226,7 @@ func processFollowedArtists(userId string, token string, pool *WorkerPool, track
 			}
 			pool.SubmitWithStage(&SaveArtistTopTracksJob{
 				ArtistId: artist.Id,
-				Type:     TopArtists,
+				Type:     FollowedArtists,
 			}, jobWg, stage)
 			pool.SubmitWithStage(&SaveArtistAlbumsJob{
 				ArtistId: artist.Id,
