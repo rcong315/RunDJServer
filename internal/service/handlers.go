@@ -13,11 +13,6 @@ import (
 	"github.com/rcong315/RunDJServer/internal/spotify"
 )
 
-type Message struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
-}
-
 func HomeHandler(c *gin.Context) {
 	logger.Info("HomeHandler called", zap.String("path", c.Request.URL.Path))
 	c.String(http.StatusOK, "RunDJ Backend")
@@ -42,15 +37,32 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 	logger.Debug("RegisterHandler: User retrieved", zap.String("userId", user.Id), zap.String("displayName", user.DisplayName))
-	saveUser(user) // Assuming saveUser has its own logging if necessary
 
-	processAll(token, user.Id) // Assuming processAll has its own logging
+	isNewUser, err := saveUser(user)
+	if err != nil {
+		logger.Error("RegisterHandler: Error saving user", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Error saving user: " + err.Error(),
+		})
+		return
+	}
 
-	logger.Info("RegisterHandler: User registered successfully, processing tracks", zap.String("userId", user.Id))
-	c.JSON(http.StatusOK, Message{
-		Status:  "success",
-		Message: "User registered successfully, processing tracks",
-	})
+	if isNewUser {
+		// For new users, process all their data asynchronously
+		go func() {
+			logger.Info("RegisterHandler: Processing new user's data", zap.String("userId", user.Id))
+			processAll(token, user.Id)
+		}()
+		logger.Info("RegisterHandler: New user registered, processing started", zap.String("userId", user.Id))
+		c.JSON(http.StatusOK, gin.H{
+			"isNewUser": true,
+		})
+	} else {
+		logger.Info("RegisterHandler: Existing user logged in", zap.String("userId", user.Id))
+		c.JSON(http.StatusOK, gin.H{
+			"isNewUser": false,
+		})
+	}
 }
 
 func PresetPlaylistHandler(c *gin.Context) {
