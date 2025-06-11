@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -19,7 +20,6 @@ func HomeHandler(c *gin.Context) {
 }
 
 func RegisterHandler(c *gin.Context) {
-	// TODO: check when last updated to see if need to run processAll again
 	logger.Info("RegisterHandler called")
 	token := c.Query("access_token")
 	if token == "" {
@@ -48,20 +48,36 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	if isNewUser {
-		// For new users, process all their data asynchronously
 		go func() {
 			logger.Info("RegisterHandler: Processing new user's data", zap.String("userId", user.Id))
 			processAll(token, user.Id)
 		}()
 		logger.Info("RegisterHandler: New user registered, processing started", zap.String("userId", user.Id))
-		c.JSON(http.StatusOK, gin.H{
-			"isNewUser": true,
-		})
+		c.JSON(http.StatusOK, true)
 	} else {
+		// For existing users, check if data is stale (more than 3 days old)
+		userUpdatedAt, err := db.GetUserUpdatedAt(user.Id)
+		if err != nil {
+			logger.Error("RegisterHandler: Error getting user updated_at", zap.String("userId", user.Id), zap.Error(err))
+		} else {
+			daysSinceUpdate := time.Since(userUpdatedAt).Hours() / 24
+			if daysSinceUpdate > 3 {
+				logger.Info("RegisterHandler: User data is stale, processing all data",
+					zap.String("userId", user.Id),
+					zap.Float64("daysSinceUpdate", daysSinceUpdate))
+				go func() {
+					logger.Info("RegisterHandler: Processing existing user's stale data", zap.String("userId", user.Id))
+					processAll(token, user.Id)
+				}()
+			} else {
+				logger.Debug("RegisterHandler: User data is fresh",
+					zap.String("userId", user.Id),
+					zap.Float64("daysSinceUpdate", daysSinceUpdate))
+			}
+		}
+
 		logger.Info("RegisterHandler: Existing user logged in", zap.String("userId", user.Id))
-		c.JSON(http.StatusOK, gin.H{
-			"isNewUser": false,
-		})
+		c.JSON(http.StatusOK, false)
 	}
 }
 
@@ -395,8 +411,5 @@ func FeedbackHandler(c *gin.Context) {
 		return
 	}
 	logger.Info("FeedbackHandler: Feedback saved successfully", zap.String("userId", userId), zap.String("songId", songId))
-	c.JSON(http.StatusOK, Message{
-		Status:  "success",
-		Message: "Feedback saved successfully",
-	})
+	c.JSON(http.StatusOK, true)
 }

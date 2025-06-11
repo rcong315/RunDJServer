@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -68,4 +69,21 @@ func UserExists(userId string) (bool, error) {
 	}
 
 	return count > 0, nil
+}
+
+func GetUserUpdatedAt(userId string) (time.Time, error) {
+	logger.Debug("Getting user updated_at", zap.String("userId", userId))
+
+	db, err := getDB()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("database connection error: %v", err)
+	}
+
+	var updatedAt time.Time
+	err = db.QueryRow(context.Background(), `SELECT updated_at FROM "user" WHERE user_id = $1`, userId).Scan(&updatedAt)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error getting user updated_at: %v", err)
+	}
+
+	return updatedAt, nil
 }
