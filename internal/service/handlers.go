@@ -254,12 +254,12 @@ func MatchingTracksHandler(c *gin.Context) {
 	}
 	logger.Info("MatchingTracksHandler: Tracks retrieved by BPM", zap.String("userId", userId), zap.Int("count", len(tracks)))
 
-	if len(tracks) > 50 {
-		logger.Warn("MatchingTracksHandler: More than 50 tracks found, limiting to 50", zap.String("userId", userId), zap.Int("count", len(tracks)))
+	if len(tracks) > 1000 {
+		logger.Warn("MatchingTracksHandler: More than 1000 tracks found, limiting to 1000", zap.String("userId", userId), zap.Int("count", len(tracks)))
 		limitedTracks := make(map[string]float64)
 		count := 0
 		for key, value := range tracks {
-			if count >= 50 {
+			if count >= 1000 {
 				break
 			}
 			limitedTracks[key] = value
