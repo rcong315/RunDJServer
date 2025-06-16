@@ -24,6 +24,7 @@ type Track struct {
 	AvailableMarkets []string       `json:"available_markets"`
 	AudioFeatures    *AudioFeatures `json:"audio_features"`
 	BPM              float64        `json:"bpm"`
+	TimeSignature    int            `json:"time_signature"`
 }
 
 type AudioFeatures struct {
@@ -55,8 +56,10 @@ func SaveTracks(tracks []*Track) error {
 
 		var audioFeaturesJSON string
 		bpm := 0.0
+		timeSignature := 0
 		if track.AudioFeatures != nil {
 			bpm = track.AudioFeatures.Tempo
+			timeSignature = track.AudioFeatures.TimeSignature
 			audioFeaturesBytes, errMarshal := json.Marshal(track.AudioFeatures)
 			if errMarshal != nil {
 				// Log the error but continue, audioFeaturesJSON will be empty or default
@@ -78,6 +81,7 @@ func SaveTracks(tracks []*Track) error {
 			track.AvailableMarkets,
 			audioFeaturesJSON,
 			bpm,
+			timeSignature,
 		}
 	})
 	if err != nil {
@@ -210,6 +214,67 @@ func GetTracksByBPM(userId string, min float64, max float64, sources []string) (
 	}
 
 	logger.Debug("GetTracksByBPM: Successfully retrieved tracks",
+		zap.String("userId", userId),
+		zap.Int("trackCount", len(tracks)))
+	return tracks, nil
+}
+
+func GetTracksByTimeSignature(userId string, timeSignature int, sources []string) (map[string]int, error) {
+	logger.Debug("Getting tracks by time signature for user",
+		zap.String("userId", userId),
+		zap.Int("timeSignature", timeSignature),
+		zap.Strings("sources", sources))
+
+	tracks := make(map[string]int)
+	sqlFileMap := map[string]string{
+		"top_tracks":                  "topTracksByTimeSignature",
+		"saved_tracks":                "savedTracksByTimeSignature",
+		"playlists":                   "playlistsTracksByTimeSignature",
+		"top_artists_top_tracks":      "topArtistsTopTracksByTimeSignature",
+		"top_artists_albums":          "topArtistsAlbumsByTimeSignature",
+		"top_artists_singles":         "topArtistsSinglesByTimeSignature",
+		"followed_artists_top_tracks": "followedArtistsTopTracksByTimeSignature",
+		"followed_artists_albums":     "followedArtistsAlbumsByTimeSignature",
+		"followed_artists_singles":    "followedArtistsSinglesByTimeSignature",
+		"saved_albums":                "savedAlbumsByTimeSignature",
+	}
+
+	for _, source := range sources {
+		queryName, ok := sqlFileMap[source]
+		if !ok {
+			logger.Warn("GetTracksByTimeSignature: Unknown source provided", zap.String("userId", userId), zap.String("source", source))
+			continue
+		}
+		logger.Debug("GetTracksByTimeSignature: Executing select for source",
+			zap.String("userId", userId),
+			zap.String("source", source),
+			zap.String("queryName", queryName))
+
+		rows, err := executeSelect(queryName, userId, timeSignature)
+		if err != nil {
+			return nil, fmt.Errorf("error executing select for source %s: %v", source, err)
+		}
+
+		processedRows := 0
+		for rows.Next() {
+			var track string
+			var ts int
+			err := rows.Scan(&track, &ts)
+			if err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("error scanning track for source %s: %v", source, err)
+			}
+			tracks[track] = ts
+			processedRows++
+		}
+		rows.Close()
+		logger.Debug("GetTracksByTimeSignature: Finished processing source",
+			zap.String("userId", userId),
+			zap.String("source", source),
+			zap.Int("processedRows", processedRows))
+	}
+
+	logger.Debug("GetTracksByTimeSignature: Successfully retrieved tracks",
 		zap.String("userId", userId),
 		zap.Int("trackCount", len(tracks)))
 	return tracks, nil

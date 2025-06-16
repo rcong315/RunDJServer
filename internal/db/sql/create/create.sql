@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS "track" (
     available_markets TEXT [] DEFAULT '{}',
     audio_features JSONB,
     bpm FLOAT,
+    time_signature INT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -161,4 +162,7 @@ CREATE TABLE IF NOT EXISTS "album_track" (
     FOREIGN KEY (track_id) REFERENCES "track" (track_id)
 );
 CREATE INDEX IF NOT EXISTS idx_track_album_id ON "track" (album_id);
+CREATE index idx_artist_ids ON "track" (artist_ids);
+CREATE index idx_album_id ON "track" (album_id);
 CREATE INDEX IF NOT EXISTS idx_track_bpm ON "track" (bpm);
+CREATE INDEX IF NOT EXISTS idx_track_time_signature ON "track" (time_signature);

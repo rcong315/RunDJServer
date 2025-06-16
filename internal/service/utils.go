@@ -93,6 +93,7 @@ func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 			DurationMS:       track.DurationMS,
 			AvailableMarkets: track.AvailableMarkets,
 			AudioFeatures:    dbAudioFeatures,
+			TimeSignature:    dbAudioFeatures.TimeSignature,
 		}
 		dbTracks = append(dbTracks, dbTrack)
 	}
