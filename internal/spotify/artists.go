@@ -85,6 +85,13 @@ func GetArtistsAlbumsAndSingles(artistId string, processor func([]*Album) error)
 	return nil
 }
 
+func GetArtistsAllAlbumTypes(artistId string, processor func([]*Album) error) error {
+	if err := getArtistsAlbums(artistId, "album,single,appears_on,compilation", processor); err != nil {
+		return fmt.Errorf("getting albums and singles for artist %s: %w", artistId, err)
+	}
+	return nil
+}
+
 func getArtistsAlbums(artistId string, include_groups string, processor func([]*Album) error) error {
 	logger.Debug("Getting artist albums", zap.String("artistId", artistId), zap.String("include_groups", include_groups))
 	token, err := getSecretToken()

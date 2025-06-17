@@ -28,10 +28,11 @@ func (s *Scheduler) Start(ctx context.Context) {
 	s.logger.Info("Starting scheduler")
 
 	// Schedule different types of jobs at different intervals
-	go s.scheduleJob(ctx, JobTypeMissingAudioFeatures, 5*time.Minute, PriorityHigh)
-	go s.scheduleJob(ctx, JobTypeStaleRefresh, 1*time.Hour, PriorityMedium)
-	go s.scheduleJob(ctx, JobTypeDiscoveryArtists, 6*time.Hour, PriorityLow)
-	go s.scheduleJob(ctx, JobTypeDiscoveryAlbums, 12*time.Hour, PriorityLow)
+	go s.scheduleJob(ctx, JobTypeMissingAudioFeatures, 24*time.Hour, PriorityHigh)
+	go s.scheduleJob(ctx, JobTypeTrackRelationships, 24*time.Hour, PriorityMedium)
+	go s.scheduleJob(ctx, JobTypeDiscoveryArtists, 3.5*24*time.Hour, PriorityMedium)
+	go s.scheduleJob(ctx, JobTypeDiscoveryAlbums, 7*24*time.Hour, PriorityMedium)
+	go s.scheduleJob(ctx, JobTypeStaleRefresh, 7*24*time.Hour, PriorityLow)
 
 	// Run initial job discovery
 	s.discoverJobs(ctx)
@@ -68,6 +69,7 @@ func (s *Scheduler) discoverJobs(ctx context.Context) {
 	s.discoverJobsOfType(ctx, JobTypeStaleRefresh, PriorityMedium)
 	s.discoverJobsOfType(ctx, JobTypeDiscoveryArtists, PriorityLow)
 	s.discoverJobsOfType(ctx, JobTypeDiscoveryAlbums, PriorityLow)
+	s.discoverJobsOfType(ctx, JobTypeTrackRelationships, PriorityMedium)
 }
 
 // discoverJobsOfType discovers jobs of a specific type
@@ -83,6 +85,8 @@ func (s *Scheduler) discoverJobsOfType(ctx context.Context, jobType CrawlJobType
 		s.discoverArtistsToRefresh(ctx, priority)
 	case JobTypeDiscoveryAlbums:
 		s.discoverAlbumsToRefresh(ctx, priority)
+	case JobTypeTrackRelationships:
+		s.discoverTrackRelationships(ctx, priority)
 	}
 
 	s.logger.Debug("Job discovery completed",
@@ -218,5 +222,37 @@ func (s *Scheduler) discoverAlbumsToRefresh(ctx context.Context, priority int) {
 
 	if jobCount > 0 {
 		s.logger.Info("Discovered album discovery jobs", zap.Int("count", jobCount))
+	}
+}
+
+// discoverTrackRelationships finds tracks with unprocessed artists or albums
+func (s *Scheduler) discoverTrackRelationships(ctx context.Context, priority int) {
+	trackIDs, err := db.GetTracksWithUnprocessedRelationships(ctx, 500)
+	if err != nil {
+		s.logger.Error("Failed to get tracks with unprocessed relationships", zap.Error(err))
+		return
+	}
+
+	jobCount := 0
+	for _, trackID := range trackIDs {
+		job := CrawlJob{
+			Type:     JobTypeTrackRelationships,
+			ID:       trackID,
+			Priority: priority,
+			Retries:  0,
+		}
+
+		select {
+		case s.jobs <- job:
+			jobCount++
+		case <-ctx.Done():
+			return
+		default:
+			s.logger.Warn("Job queue full, skipping job", zap.String("track_id", trackID))
+		}
+	}
+
+	if jobCount > 0 {
+		s.logger.Info("Discovered track relationships jobs", zap.Int("count", jobCount))
 	}
 }

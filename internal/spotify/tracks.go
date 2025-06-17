@@ -67,7 +67,7 @@ type AudioFeaturesResponse struct {
 
 func createAudioFeaturesBatcher(processor func([]*Track) error) *BatchProcessor[*Track] {
 	return NewBatchProcessor(100, func(tracks []*Track) error {
-		enrichedTracks, err := getAudioFeatures(tracks)
+		enrichedTracks, err := GetAudioFeatures(tracks)
 		if err != nil {
 			return fmt.Errorf("getting audio features batch: %w", err)
 		}
@@ -137,7 +137,7 @@ func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
 }
 
 // TODO: review
-func getAudioFeatures(tracks []*Track) ([]*Track, error) {
+func GetAudioFeatures(tracks []*Track) ([]*Track, error) {
 	if len(tracks) == 0 {
 		logger.Debug("getAudioFeatures: No tracks provided to fetch audio features for.")
 		return tracks, nil

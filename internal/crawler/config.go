@@ -27,6 +27,7 @@ const (
 	JobTypeStaleRefresh         CrawlJobType = "stale_refresh"
 	JobTypeDiscoveryArtists     CrawlJobType = "discovery_artists"
 	JobTypeDiscoveryAlbums      CrawlJobType = "discovery_albums"
+	JobTypeTrackRelationships   CrawlJobType = "track_relationships"
 )
 
 // Priority levels for crawl jobs

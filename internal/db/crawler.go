@@ -246,3 +246,115 @@ func UpdateAlbumTracksTime(ctx context.Context, albumID string) error {
 	logger.Debug("Updated album tracks time", zap.String("album_id", albumID))
 	return nil
 }
+
+// GetTracksWithUnprocessedRelationships returns track IDs that have artists or albums that haven't been processed
+func GetTracksWithUnprocessedRelationships(ctx context.Context, limit int) ([]string, error) {
+	query := `
+		SELECT DISTINCT t.track_id 
+		FROM track t
+		WHERE EXISTS (
+			-- Check for artists that haven't been crawled recently or at all
+			SELECT 1 FROM unnest(t.artist_ids) AS artist_id
+			WHERE NOT EXISTS (
+				SELECT 1 FROM artist a 
+				WHERE a.artist_id = artist_id 
+				AND a.last_crawled_at IS NOT NULL 
+				AND a.last_crawled_at > NOW() - INTERVAL '7 days'
+			)
+		)
+		OR EXISTS (
+			-- Check for albums that haven't had tracks fetched recently or at all
+			SELECT 1 FROM album al
+			WHERE al.album_id = t.album_id
+			AND (al.tracks_fetched_at IS NULL 
+				 OR al.tracks_fetched_at < NOW() - INTERVAL '7 days')
+		)
+		ORDER BY t.created_at DESC
+		LIMIT $1`
+
+	db, err := getDB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database connection: %w", err)
+	}
+
+	rows, err := db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query tracks with unprocessed relationships: %w", err)
+	}
+	defer rows.Close()
+
+	var trackIDs []string
+	for rows.Next() {
+		var trackID string
+		if err := rows.Scan(&trackID); err != nil {
+			logger.Error("Failed to scan track ID", zap.Error(err))
+			continue
+		}
+		trackIDs = append(trackIDs, trackID)
+	}
+
+	return trackIDs, rows.Err()
+}
+
+// GetTrackRelationships returns the artist IDs and album ID for a given track
+func GetTrackRelationships(ctx context.Context, trackID string) (artistIDs []string, albumID string, err error) {
+	query := `SELECT artist_ids, album_id FROM track WHERE track_id = $1`
+	
+	db, err := getDB()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get database connection: %w", err)
+	}
+
+	row := db.QueryRow(ctx, query, trackID)
+	
+	err = row.Scan(&artistIDs, &albumID)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get track relationships for track %s: %w", trackID, err)
+	}
+
+	return artistIDs, albumID, nil
+}
+
+// ArtistNeedsCrawling checks if an artist needs to be crawled based on last_crawled_at timestamp
+func ArtistNeedsCrawling(ctx context.Context, artistID string, crawlThreshold time.Time) (bool, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM artist 
+		WHERE artist_id = $1 
+		AND (last_crawled_at IS NULL OR last_crawled_at < $2)`
+	
+	db, err := getDB()
+	if err != nil {
+		return false, fmt.Errorf("failed to get database connection: %w", err)
+	}
+
+	var count int
+	err = db.QueryRow(ctx, query, artistID, crawlThreshold).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if artist needs crawling: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// AlbumNeedsTrackDiscovery checks if an album needs track discovery based on tracks_fetched_at timestamp
+func AlbumNeedsTrackDiscovery(ctx context.Context, albumID string, crawlThreshold time.Time) (bool, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM album 
+		WHERE album_id = $1 
+		AND (tracks_fetched_at IS NULL OR tracks_fetched_at < $2)`
+	
+	db, err := getDB()
+	if err != nil {
+		return false, fmt.Errorf("failed to get database connection: %w", err)
+	}
+
+	var count int
+	err = db.QueryRow(ctx, query, albumID, crawlThreshold).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if album needs track discovery: %w", err)
+	}
+
+	return count > 0, nil
+}
