@@ -31,7 +31,6 @@ func initDB() error {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 
-	// Construct connection string - remove prefer_simple_protocol=true if you added it
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
 
