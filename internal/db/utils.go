@@ -24,6 +24,14 @@ var (
 var sqlFiles embed.FS // Variable to hold embedded SQL files
 const BatchSize = 100
 
+// InitDB initializes the database connection pool
+func InitDB() error {
+	dbOnce.Do(func() {
+		initError = initDB()
+	})
+	return initError
+}
+
 func initDB() error {
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
@@ -63,6 +71,11 @@ func initDB() error {
 
 	dbPool = pool
 	return nil
+}
+
+// GetDB returns the database connection pool
+func GetDB() (*pgxpool.Pool, error) {
+	return getDB()
 }
 
 func getDB() (*pgxpool.Pool, error) {

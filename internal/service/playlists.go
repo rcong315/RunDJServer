@@ -53,7 +53,7 @@ func (j *SavePlaylistTracksJob) Execute(pool *WorkerPool, jobWg *sync.WaitGroup,
 
 	trackBatcher := createTrackBatcher("playlist", playlistId, tracker, db.SavePlaylistTracks)
 
-	err := spotify.GetPlaylistsTracks(token, playlistId, func(tracks []*spotify.Track) error {
+	err := spotify.GetPlaylistTracks(token, playlistId, func(tracks []*spotify.Track) error {
 		for _, track := range tracks {
 			if err := trackBatcher.Add(track); err != nil {
 				return fmt.Errorf("adding track to batch: %w", err)

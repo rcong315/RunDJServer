@@ -83,6 +83,11 @@ func fetchNewToken() (string, time.Time, error) {
 	return result.Token, expirationTime, nil
 }
 
+// GetSecretToken retrieves the cached Spotify API token or fetches a new one if needed
+func GetSecretToken() (string, error) {
+	return getSecretToken()
+}
+
 func getSecretToken() (string, error) {
 	now := time.Now()
 

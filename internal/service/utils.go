@@ -43,7 +43,8 @@ func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 	}
 }
 
-func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
+// ConvertSpotifyTracksToDBTracks converts Spotify tracks to database tracks
+func ConvertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 	var dbTracks []*db.Track
 	for _, track := range tracks {
 		if track == nil || track.Id == "" {

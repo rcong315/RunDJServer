@@ -67,7 +67,11 @@ type AudioFeaturesResponse struct {
 
 func createAudioFeaturesBatcher(processor func([]*Track) error) *BatchProcessor[*Track] {
 	return NewBatchProcessor(100, func(tracks []*Track) error {
-		enrichedTracks, err := getAudioFeatures(tracks)
+		token, err := getSecretToken()
+		if err != nil {
+			return fmt.Errorf("getting secret token: %w", err)
+		}
+		enrichedTracks, err := GetAudioFeatures(token, tracks)
 		if err != nil {
 			return fmt.Errorf("getting audio features batch: %w", err)
 		}
@@ -136,17 +140,13 @@ func GetUsersSavedTracks(token string, processor func([]*Track) error) error {
 	return nil
 }
 
-// TODO: review
-func getAudioFeatures(tracks []*Track) ([]*Track, error) {
+// GetAudioFeatures enriches tracks with audio features from Spotify API
+func GetAudioFeatures(token string, tracks []*Track) ([]*Track, error) {
 	if len(tracks) == 0 {
 		logger.Debug("getAudioFeatures: No tracks provided to fetch audio features for.")
 		return tracks, nil
 	}
 	logger.Debug("Attempting to get audio features for tracks", zap.Int("trackCount", len(tracks)))
-	token, err := getSecretToken()
-	if err != nil {
-		return nil, fmt.Errorf("getting secret token: %w", err)
-	}
 
 	trackMap := make(map[string]*Track)
 	for _, track := range tracks {

@@ -57,6 +57,26 @@ func GetUsersSavedAlbums(token string, processor func([]*Album) error) error {
 	return nil
 }
 
+// GetAlbum fetches a single album's details from Spotify
+func GetAlbum(token string, albumID string) (*Album, error) {
+	logger.Debug("Attempting to get album details", zap.String("albumID", albumID))
+	url := fmt.Sprintf("%s/albums/%s", spotifyAPIURL, albumID)
+	
+	albums, err := fetchAllResults[Album](token, url)
+	if err != nil {
+		return nil, fmt.Errorf("fetching album %s: %w", albumID, err)
+	}
+	
+	if len(albums) == 0 || albums[0] == nil {
+		return nil, fmt.Errorf("no album found for ID %s", albumID)
+	}
+	
+	logger.Debug("Retrieved album details", 
+		zap.String("albumID", albumID),
+		zap.String("albumName", albums[0].Name))
+	return albums[0], nil
+}
+
 func GetAlbumsTracks(albumId string, processor func([]*Track) error) error {
 	logger.Debug("Attempting to get tracks for album", zap.String("albumId", albumId))
 	url := fmt.Sprintf("%s/albums/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, albumId, limitMax, 0)

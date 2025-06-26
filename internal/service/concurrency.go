@@ -13,8 +13,8 @@ import (
 
 // StageContext tracks jobs belonging to a specific processing stage
 type StageContext struct {
-	wg   *sync.WaitGroup
-	name string
+	Wg   *sync.WaitGroup
+	Name string
 }
 
 // Job represents a task for a worker to execute.
@@ -84,7 +84,7 @@ func (wp *WorkerPool) worker(id int, jobWg *sync.WaitGroup, tracker *ProcessedTr
 		
 		// Also decrement stage wait group if present
 		if wrapper.stage != nil {
-			wrapper.stage.wg.Done()
+			wrapper.stage.Wg.Done()
 		}
 	}
 	logger.Debug("Worker finished", zap.Int("workerId", id))
@@ -139,7 +139,7 @@ func (wp *WorkerPool) SubmitWithStage(job Job, jobWg *sync.WaitGroup, stage *Sta
 	jobWg.Add(1) // Increment global WG
 	
 	if stage != nil {
-		stage.wg.Add(1) // Also increment stage WG
+		stage.Wg.Add(1) // Also increment stage WG
 	}
 	
 	// This will block if queue is full
@@ -177,6 +177,11 @@ func (wp *WorkerPool) GetMaxQueueSize() int64 {
 	return wp.queueHighWaterMark
 }
 
+// GetResultsChan returns the results channel for error collection
+func (wp *WorkerPool) GetResultsChan() <-chan error {
+	return wp.resultsChan
+}
+
 // TrySubmitWithStage attempts to submit without blocking
 // Returns true if job was queued, false if queue is full
 func (wp *WorkerPool) TrySubmitWithStage(job Job, jobWg *sync.WaitGroup, stage *StageContext) bool {
@@ -185,7 +190,7 @@ func (wp *WorkerPool) TrySubmitWithStage(job Job, jobWg *sync.WaitGroup, stage *
 		// Successfully queued - now increment waitgroups
 		jobWg.Add(1)
 		if stage != nil {
-			stage.wg.Add(1)
+			stage.Wg.Add(1)
 		}
 		
 		// Update monitoring

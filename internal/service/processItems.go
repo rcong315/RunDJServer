@@ -53,8 +53,8 @@ func processAll(token string, userId string) {
 			// Create a stage-specific wait group
 			stageWg := &sync.WaitGroup{}
 			stageCtx := &StageContext{
-				wg:   stageWg,
-				name: name,
+				Wg:   stageWg,
+				Name: name,
 			}
 
 			if err := processFunc(userId, token, pool, tracker, &jobWg, stageCtx); err != nil {

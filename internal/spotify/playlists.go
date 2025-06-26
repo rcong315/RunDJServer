@@ -61,7 +61,8 @@ func GetUsersPlaylists(token string, processor func([]*Playlist) error) error {
 	return nil
 }
 
-func GetPlaylistsTracks(token string, playlistId string, processor func([]*Track) error) error {
+// GetPlaylistTracks fetches all tracks from a playlist and processes them in batches
+func GetPlaylistTracks(token string, playlistId string, processor func([]*Track) error) error {
 	logger.Debug("Attempting to get tracks for playlist", zap.String("playlistId", playlistId))
 	url := fmt.Sprintf("%s/playlists/%s/tracks?limit=%d&offset=%d", spotifyAPIURL, playlistId, limitMax, 0)
 
