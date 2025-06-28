@@ -71,7 +71,7 @@ func main() {
 	}
 
 	logger.Info("Server starting", zap.String("port", port))
-	err := router.Run(":" + port)
+	err = router.Run(":" + port)
 	if err != nil {
 		logger.Fatal("Failed to run server", zap.Error(err))
 	}
