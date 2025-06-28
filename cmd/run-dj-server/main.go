@@ -15,15 +15,25 @@ import (
 )
 
 func main() {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
+	var logger *zap.Logger
+	var err error
 
 	if os.Getenv("DEBUG") == "true" {
-		err := godotenv.Load("../../.env")
+		logger, err = zap.NewDevelopment()
+		if err != nil {
+			panic(err)
+		}
+		err = godotenv.Load("../../.env")
 		if err != nil {
 			logger.Warn("Warning: .env file not found. Using system environment variables.")
 		}
+	} else {
+		logger, err = zap.NewProduction()
+		if err != nil {
+			panic(err)
+		}
 	}
+	defer logger.Sync()
 
 	service.InitializeLogger(logger)
 	spotify.InitializeLogger(logger)

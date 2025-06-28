@@ -8,6 +8,7 @@ FROM "user_followed_artist" ufa
 WHERE ufa.user_id = $1
     AND a.album_type = 'album'
     AND t.bpm BETWEEN $2 AND $3
+    AND t.time_signature = 4
     AND NOT EXISTS (
         SELECT 1
         FROM "user_track_interaction" uti

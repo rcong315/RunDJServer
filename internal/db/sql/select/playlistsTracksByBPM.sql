@@ -5,6 +5,7 @@ FROM "user_playlist" up
     JOIN "track" t ON pt.track_id = t.track_id
 WHERE up.playlist_id = $1
     AND t.bpm BETWEEN $2 AND $3
+    AND t.time_signature = 4
     AND NOT EXISTS (
         SELECT 1
         FROM "user_track_interaction" uti

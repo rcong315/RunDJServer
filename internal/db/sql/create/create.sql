@@ -161,8 +161,13 @@ CREATE TABLE IF NOT EXISTS "album_track" (
     FOREIGN KEY (album_id) REFERENCES "album" (album_id),
     FOREIGN KEY (track_id) REFERENCES "track" (track_id)
 );
-CREATE INDEX IF NOT EXISTS idx_track_album_id ON "track" (album_id);
-CREATE index idx_artist_ids ON "track" (artist_ids);
-CREATE index idx_album_id ON "track" (album_id);
+
+-- Recommended Indexes
 CREATE INDEX IF NOT EXISTS idx_track_bpm ON "track" (bpm);
 CREATE INDEX IF NOT EXISTS idx_track_time_signature ON "track" (time_signature);
+CREATE INDEX IF NOT EXISTS idx_user_track_interaction_track_user ON "user_track_interaction" (track_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_album_type ON "album" (album_type);
+CREATE INDEX IF NOT EXISTS idx_album_track_track_id ON "album_track" (track_id);
+CREATE INDEX IF NOT EXISTS idx_artist_album_album_id ON "artist_album" (album_id);
+CREATE INDEX IF NOT EXISTS idx_artist_top_track_track_id ON "artist_top_track" (track_id);
+CREATE INDEX IF NOT EXISTS idx_playlist_track_track_id ON "playlist_track" (track_id);
