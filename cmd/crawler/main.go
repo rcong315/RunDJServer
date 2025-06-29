@@ -18,21 +18,21 @@ import (
 )
 
 func main() {
-	var (
-		crawlInterval = flag.Duration("crawl-interval", 5*time.Minute, "Interval between crawl cycles")
-		workers       = flag.Int("workers", 8, "Number of worker goroutines")
-		logLevel      = flag.String("log-level", getEnv("LOG_LEVEL", "info"), "Log level (debug, info, warn, error)")
-		metricsPort   = flag.String("metrics-port", getEnv("METRICS_PORT", "9090"), "Metrics server port")
-	)
-	flag.Parse()
-
-	// Load environment variables
 	if os.Getenv("DEBUG") == "true" {
 		err := godotenv.Load("../../.env")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: .env file not found. Using system environment variables.\n")
 		}
 	}
+
+	var (
+		crawlInterval = flag.Duration("crawl-interval", 5*time.Minute, "Interval between crawl cycles")
+		workers       = flag.Int("workers", 32, "Number of worker goroutines")
+		queueSize     = flag.Int("queue-size", crawler.JobQueueSize, "Job queue buffer size")
+		logLevel      = flag.String("log-level", getEnv("LOG_LEVEL", "info"), "Log level (debug, info, warn, error)")
+		metricsPort   = flag.String("metrics-port", getEnv("METRICS_PORT", "9090"), "Metrics server port")
+	)
+	flag.Parse()
 
 	// Setup logger
 	logger, err := setupLogger(*logLevel)
@@ -49,6 +49,7 @@ func main() {
 	logger.Info("Starting RunDJ Crawler",
 		zap.Duration("crawlInterval", *crawlInterval),
 		zap.Int("workers", *workers),
+		zap.Int("queueSize", *queueSize),
 		zap.String("logLevel", *logLevel),
 		zap.String("metricsPort", *metricsPort))
 
@@ -56,6 +57,7 @@ func main() {
 	config := &crawler.Config{
 		CrawlInterval: *crawlInterval,
 		Workers:       *workers,
+		QueueSize:     *queueSize,
 		MetricsPort:   *metricsPort,
 		Logger:        logger,
 	}

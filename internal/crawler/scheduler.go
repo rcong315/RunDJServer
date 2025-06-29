@@ -114,10 +114,17 @@ func (s *Scheduler) discoverMissingAudioFeatures(ctx context.Context, priority i
 		select {
 		case s.jobs <- job:
 			jobCount++
+			// Add small delay every 50 jobs to avoid overwhelming the queue
+			if jobCount%50 == 0 {
+				time.Sleep(10 * time.Millisecond)
+			}
 		case <-ctx.Done():
 			return
 		default:
-			s.logger.Warn("Job queue full, skipping job", zap.String("track_id", trackID))
+			s.logger.Warn("Job queue full, skipping remaining audio features jobs", 
+				zap.Int("jobs_created", jobCount),
+				zap.Int("total_tracks", len(trackIDs)))
+			return
 		}
 	}
 

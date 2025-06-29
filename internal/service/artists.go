@@ -28,7 +28,7 @@ type SaveArtistAlbumsJob struct {
 
 func createArtistBatcher(userId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Artist) error) *spotify.BatchProcessor[*spotify.Artist] {
 	return spotify.NewBatchProcessor(100, func(artists []*spotify.Artist) error {
-		dbArtists := convertSpotifyArtistsToDBArtists(artists)
+		dbArtists := ConvertSpotifyArtistsToDBArtists(artists)
 		var artistsToSave []*db.Artist
 		for _, artist := range dbArtists {
 			if !tracker.CheckAndMark("artist", artist.ArtistId) {
@@ -58,7 +58,7 @@ func createRankedArtistBatcher(userId string, tracker *ProcessedTracker,
 	saveRelation func(string, []*db.RankedArtist) error, rankCounter *int) *spotify.BatchProcessor[*spotify.Artist] {
 
 	return spotify.NewBatchProcessor(100, func(artists []*spotify.Artist) error {
-		dbArtists := convertSpotifyArtistsToDBArtists(artists)
+		dbArtists := ConvertSpotifyArtistsToDBArtists(artists)
 		var artistsToSave []*db.Artist
 		var rankedArtists []*db.RankedArtist
 

@@ -43,7 +43,7 @@ func convertSpotifyUserToDBUser(user *spotify.User) *db.User {
 	}
 }
 
-func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
+func ConvertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 	var dbTracks []*db.Track
 	for _, track := range tracks {
 		if track == nil || track.Id == "" {
@@ -64,9 +64,7 @@ func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 
 		audioFeatures := track.AudioFeatures
 		var dbAudioFeatures *db.AudioFeatures
-		if track.AudioFeatures == nil {
-			dbAudioFeatures = &db.AudioFeatures{}
-		} else {
+		if track.AudioFeatures != nil {
 			dbAudioFeatures = &db.AudioFeatures{
 				Danceability:      audioFeatures.Danceability,
 				Energy:            audioFeatures.Energy,
@@ -83,6 +81,14 @@ func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 				TimeSignature:     audioFeatures.TimeSignature,
 			}
 		}
+		// If track.AudioFeatures is nil, dbAudioFeatures remains nil
+
+		var bpm float64
+		var timeSignature int
+		if dbAudioFeatures != nil {
+			bpm = dbAudioFeatures.Tempo
+			timeSignature = dbAudioFeatures.TimeSignature
+		}
 
 		dbTrack := &db.Track{
 			TrackId:          track.Id,
@@ -93,7 +99,8 @@ func convertSpotifyTracksToDBTracks(tracks []*spotify.Track) []*db.Track {
 			DurationMS:       track.DurationMS,
 			AvailableMarkets: track.AvailableMarkets,
 			AudioFeatures:    dbAudioFeatures,
-			TimeSignature:    dbAudioFeatures.TimeSignature,
+			BPM:              bpm,
+			TimeSignature:    timeSignature,
 		}
 		dbTracks = append(dbTracks, dbTrack)
 	}
@@ -128,7 +135,7 @@ func convertSpotifyPlaylistsToDBPlaylists(playlists []*spotify.Playlist) []*db.P
 	return dbPlaylists
 }
 
-func convertSpotifyArtistsToDBArtists(artists []*spotify.Artist) []*db.Artist {
+func ConvertSpotifyArtistsToDBArtists(artists []*spotify.Artist) []*db.Artist {
 	var dbArtists []*db.Artist
 	for _, artist := range artists {
 		if artist == nil || artist.Id == "" {
@@ -154,7 +161,7 @@ func convertSpotifyArtistsToDBArtists(artists []*spotify.Artist) []*db.Artist {
 	return dbArtists
 }
 
-func convertSpotifyAlbumsToDBAlbums(albums []*spotify.Album) []*db.Album {
+func ConvertSpotifyAlbumsToDBAlbums(albums []*spotify.Album) []*db.Album {
 	var dbAlbums []*db.Album
 	for _, album := range albums {
 		if album == nil || album.Id == "" {

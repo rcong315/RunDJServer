@@ -16,7 +16,7 @@ type SaveAlbumTracksJob struct {
 
 func createAlbumBatcher(parentType string, parentId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Album) error) *spotify.BatchProcessor[*spotify.Album] {
 	return spotify.NewBatchProcessor(100, func(albums []*spotify.Album) error {
-		dbAlbums := convertSpotifyAlbumsToDBAlbums(albums)
+		dbAlbums := ConvertSpotifyAlbumsToDBAlbums(albums)
 		var albumsToSave []*db.Album
 		for _, album := range dbAlbums {
 			if !tracker.CheckAndMark("album", album.AlbumId) {

@@ -11,6 +11,7 @@ type Config struct {
 	// Crawler behavior
 	CrawlInterval time.Duration
 	Workers       int
+	QueueSize     int
 
 	// Monitoring
 	MetricsPort string
@@ -40,7 +41,7 @@ const (
 // CrawlJob represents a unit of work for the crawler
 type CrawlJob struct {
 	Type     CrawlJobType `json:"type"`
-	ID       string       `json:"id"`        // Track ID, Artist ID, or Album ID
+	ID       string       `json:"id"` // Track ID, Artist ID, or Album ID
 	Priority int          `json:"priority"`
 	Retries  int          `json:"retries"`
 	UserID   string       `json:"user_id,omitempty"` // For user-specific jobs
@@ -48,23 +49,24 @@ type CrawlJob struct {
 
 // Crawler configuration constants
 const (
-	// Spotify API limits
-	MaxAudioFeaturesBatch = 100
-	MaxTracksPerRequest   = 50
-	MaxAlbumsPerRequest   = 20
+	// Batching configuration
+	AudioFeaturesBatchSize    = 100
+	AudioFeaturesBatchTimeout = 5 * time.Second
+	AlbumsBatchSize           = 20
+	AlbumsBatchTimeout        = 3 * time.Second
 
 	// Rate limiting
 	DefaultRateLimit = 100 // requests per minute
-	
+
 	// Retry configuration
 	MaxRetries      = 3
 	RetryBackoffMin = 1 * time.Second
 	RetryBackoffMax = 30 * time.Second
 
 	// Data freshness
-	StaleDataThreshold = 30 * 24 * time.Hour // 30 days
+	StaleDataThreshold  = 30 * 24 * time.Hour // 30 days
 	ArtistCrawlInterval = 7 * 24 * time.Hour  // 7 days
 
 	// Queue configuration
-	JobQueueSize = 10000
+	JobQueueSize = 1000 * 1000
 )

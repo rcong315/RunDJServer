@@ -32,7 +32,8 @@ func New(config *Config) (*Crawler, error) {
 	metrics := NewMetrics()
 
 	// Create job queue
-	jobs := make(chan CrawlJob, JobQueueSize)
+	queueSize := config.QueueSize
+	jobs := make(chan CrawlJob, queueSize)
 
 	// Create workers
 	workers := make([]*Worker, config.Workers)

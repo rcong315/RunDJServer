@@ -54,7 +54,7 @@ func SaveTracks(tracks []*Track) error {
 	err := batchAndSave(tracks, "track", func(item any) []any {
 		track := item.(*Track)
 
-		var audioFeaturesJSON string
+		var audioFeaturesJSON interface{}
 		bpm := 0.0
 		timeSignature := 0
 		if track.AudioFeatures != nil {
@@ -62,13 +62,17 @@ func SaveTracks(tracks []*Track) error {
 			timeSignature = track.AudioFeatures.TimeSignature
 			audioFeaturesBytes, errMarshal := json.Marshal(track.AudioFeatures)
 			if errMarshal != nil {
-				// Log the error but continue, audioFeaturesJSON will be empty or default
+				// Log the error but continue, audioFeaturesJSON will be nil
 				logger.Warn("SaveTracks: Error marshalling audio features for track",
 					zap.String("trackId", track.TrackId),
 					zap.Error(errMarshal))
+				audioFeaturesJSON = nil
 			} else {
 				audioFeaturesJSON = string(audioFeaturesBytes)
 			}
+		} else {
+			// Use nil for NULL in database instead of empty string
+			audioFeaturesJSON = nil
 		}
 
 		return []any{

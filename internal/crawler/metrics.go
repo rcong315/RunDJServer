@@ -13,6 +13,7 @@ type Metrics struct {
 	APICallsTotal   prometheus.Counter
 	APICallsErrors  prometheus.Counter
 	JobDuration     prometheus.Histogram
+	BatchSize       prometheus.Histogram
 }
 
 // NewMetrics creates a new metrics instance
@@ -42,6 +43,11 @@ func NewMetrics() *Metrics {
 			Name:    "rundj_crawler_job_duration_seconds",
 			Help:    "The duration of job processing in seconds",
 			Buckets: prometheus.DefBuckets,
+		}),
+		BatchSize: promauto.NewHistogram(prometheus.HistogramOpts{
+			Name:    "rundj_crawler_batch_size",
+			Help:    "The size of batches processed",
+			Buckets: []float64{1, 5, 10, 25, 50, 75, 100},
 		}),
 	}
 }

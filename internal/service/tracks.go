@@ -12,7 +12,7 @@ import (
 
 func createTrackBatcher(parentType string, parentId string, tracker *ProcessedTracker, saveRelation func(string, []*db.Track) error) *spotify.BatchProcessor[*spotify.Track] {
 	return spotify.NewBatchProcessor(100, func(tracks []*spotify.Track) error {
-		dbTracks := convertSpotifyTracksToDBTracks(tracks)
+		dbTracks := ConvertSpotifyTracksToDBTracks(tracks)
 		var tracksToSave []*db.Track
 		for _, track := range dbTracks {
 			if !tracker.CheckAndMark("track", track.TrackId) {
@@ -42,7 +42,7 @@ func createRankedTrackBatcher(parentType string, parentId string, tracker *Proce
 	saveRelation func(string, []*db.RankedTrack) error, rankCounter *int) *spotify.BatchProcessor[*spotify.Track] {
 
 	return spotify.NewBatchProcessor(100, func(tracks []*spotify.Track) error {
-		dbTracks := convertSpotifyTracksToDBTracks(tracks)
+		dbTracks := ConvertSpotifyTracksToDBTracks(tracks)
 		var tracksToSave []*db.Track
 		var rankedTracks []*db.RankedTrack
 
