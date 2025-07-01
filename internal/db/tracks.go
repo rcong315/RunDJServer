@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -277,6 +278,89 @@ func GetTracksByTimeSignature(userId string, timeSignature int, sources []string
 	logger.Debug("GetTracksByTimeSignature: Successfully retrieved tracks",
 		zap.String("userId", userId),
 		zap.Int("trackCount", len(tracks)))
+	return tracks, nil
+}
+
+// GetTracksByIds retrieves tracks by their IDs from the database
+func GetTracksByIds(trackIds []string) ([]*Track, error) {
+	if len(trackIds) == 0 {
+		logger.Debug("GetTracksByIds: No track IDs provided")
+		return []*Track{}, nil
+	}
+
+	logger.Debug("Getting tracks by IDs", zap.Strings("trackIds", trackIds))
+
+	db, err := getDB()
+	if err != nil {
+		return nil, fmt.Errorf("database connection error: %w", err)
+	}
+
+	// Create placeholders for the IN clause
+	placeholders := make([]string, len(trackIds))
+	args := make([]interface{}, len(trackIds))
+	for i, id := range trackIds {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT track_id, name, artist_ids, album_id, popularity, duration_ms, 
+		       available_markets, audio_features, bpm, time_signature
+		FROM track 
+		WHERE track_id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	ctx := context.Background()
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %w", err)
+	}
+	defer rows.Close()
+
+	var tracks []*Track
+	for rows.Next() {
+		track := &Track{}
+		var audioFeaturesJSON []byte
+
+		err := rows.Scan(
+			&track.TrackId,
+			&track.Name,
+			&track.ArtistIds,
+			&track.AlbumId,
+			&track.Popularity,
+			&track.DurationMS,
+			&track.AvailableMarkets,
+			&audioFeaturesJSON,
+			&track.BPM,
+			&track.TimeSignature,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning track: %w", err)
+		}
+
+		// Parse audio features JSON
+		if len(audioFeaturesJSON) > 0 {
+			var audioFeatures AudioFeatures
+			if err := json.Unmarshal(audioFeaturesJSON, &audioFeatures); err != nil {
+				logger.Warn("Error unmarshaling audio features", 
+					zap.String("trackId", track.TrackId), 
+					zap.Error(err))
+			} else {
+				track.AudioFeatures = &audioFeatures
+			}
+		}
+
+		tracks = append(tracks, track)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	logger.Debug("Successfully retrieved tracks from database", 
+		zap.Int("requestedCount", len(trackIds)), 
+		zap.Int("foundCount", len(tracks)))
+
 	return tracks, nil
 }
 

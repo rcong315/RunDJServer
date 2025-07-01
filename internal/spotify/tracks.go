@@ -65,6 +65,10 @@ type AudioFeaturesResponse struct {
 	AudioFeatures []AudioFeatures `json:"audio_features"`
 }
 
+type TracksResponse struct {
+	Tracks []Track `json:"tracks"`
+}
+
 func createAudioFeaturesBatcher(processor func([]*Track) error) *BatchProcessor[*Track] {
 	return NewBatchProcessor(100, func(tracks []*Track) error {
 		enrichedTracks, err := getAudioFeatures(tracks)
@@ -206,6 +210,69 @@ func getAudioFeatures(tracks []*Track) ([]*Track, error) {
 	}
 
 	return tracks, nil // Return the modified original slice
+}
+
+// GetTracksByIds retrieves tracks by their IDs from Spotify API
+func GetTracksByIds(trackIds []string) ([]*Track, error) {
+	if len(trackIds) == 0 {
+		logger.Debug("GetTracksByIds: No track IDs provided")
+		return []*Track{}, nil
+	}
+
+	logger.Debug("Getting tracks by IDs from Spotify", zap.Strings("trackIds", trackIds))
+
+	token, err := getSecretToken()
+	if err != nil {
+		return nil, fmt.Errorf("getting secret token: %w", err)
+	}
+
+	var allTracks []*Track
+
+	// Process in batches of 50 (Spotify API limit)
+	for i := 0; i < len(trackIds); i += 50 {
+		end := i + 50
+		if end > len(trackIds) {
+			end = len(trackIds)
+		}
+		
+		batchIds := trackIds[i:end]
+		url := fmt.Sprintf("%s/tracks?ids=%s", spotifyAPIURL, strings.Join(batchIds, ","))
+		
+		logger.Debug("Fetching tracks batch from Spotify", 
+			zap.Int("batchStartIndex", i), 
+			zap.Int("batchSize", len(batchIds)))
+
+		response, err := fetchPaginatedItemsWithRetry[TracksResponse](token, url)
+		if err != nil {
+			logger.Error("Error fetching tracks batch from Spotify", zap.Error(err))
+			continue // Continue with next batch
+		}
+
+		if response != nil {
+			for i := range response.Tracks {
+				if response.Tracks[i].Id != "" { // Skip null tracks
+					allTracks = append(allTracks, &response.Tracks[i])
+				}
+			}
+		}
+	}
+
+	// Get audio features for all tracks
+	if len(allTracks) > 0 {
+		enrichedTracks, err := getAudioFeatures(allTracks)
+		if err != nil {
+			logger.Warn("Failed to get audio features for tracks", zap.Error(err))
+			// Return tracks without audio features rather than failing completely
+			return allTracks, nil
+		}
+		allTracks = enrichedTracks
+	}
+
+	logger.Debug("Successfully retrieved tracks from Spotify", 
+		zap.Int("requestedCount", len(trackIds)), 
+		zap.Int("foundCount", len(allTracks)))
+
+	return allTracks, nil
 }
 
 // func GetRecommendations(seedArtists, seedGenres []string, minTempo float64, maxTempo float64) ([]*Track, error) {
